@@ -8,8 +8,9 @@ class Trade extends Model
 {
 
     protected $fillable = [
+
+        'import_id',
         'user_id',
-        'note_number',
         'trade_date',
         'broker',
         'asset',
@@ -19,10 +20,23 @@ class Trade extends Model
         'price',
         'trade_type',
         'source_file'
-    ];
 
+    ];
 
     protected $casts = [
+
         'trade_date' => 'date',
+
+        'price' => 'decimal:2',
+        'fees' => 'decimal:2',
+        'irrf' => 'decimal:2',
+        'result' => 'decimal:2',
+
     ];
+
+
+    public function import()
+    {
+        return $this->belongsTo(Import::class);
+    }
 }

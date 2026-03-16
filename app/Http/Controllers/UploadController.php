@@ -6,8 +6,10 @@ use Illuminate\Http\Request;
 use App\Services\PDF\PdfReader;
 use App\Services\PDF\BrokerDetector;
 use App\Services\PDF\XPParser;
+
 use App\Models\Trade;
-use App\Models\BrokerNote;
+use App\Models\Import;
+
 use Carbon\Carbon;
 
 class UploadController extends Controller
@@ -15,20 +17,27 @@ class UploadController extends Controller
 
     public function index()
     {
-        return view('upload');
+        return view('pages.imports');
     }
 
     public function upload(Request $request)
     {
 
         $request->validate([
-            'pdf' => 'required|mimes:pdf'
+            'file' => 'required|mimes:pdf'
         ]);
 
-        $file = $request->file('pdf');
+        $file = $request->file('file');
         $path = $file->store('pdfs');
 
+        // lê texto do PDF
         $text = PdfReader::read($path);
+
+        // normaliza texto
+        $text = preg_replace("/\r\n|\r/", "\n", $text);
+        $text = preg_replace("/\t/", " ", $text);
+
+        // detecta corretora
         $broker = BrokerDetector::detect($text);
 
         if ($broker !== 'xp') {
@@ -42,33 +51,69 @@ class UploadController extends Controller
             return redirect()->back()->with('error', 'Não foi possível identificar o número da nota');
         }
 
-        // verifica se a nota já foi importada
-        $exists = BrokerNote::where('user_id', 1)
-            ->where('note_number', $noteNumber)
-            ->exists();
+        // verifica duplicidade
+        $exists = Import::where('note_number', $noteNumber)->exists();
 
         if ($exists) {
             return redirect()->back()->with('error', 'Esta nota já foi importada');
         }
 
+        // extrai trades
+        $trades = XPParser::parse($text);
+
+        if (!$trades || count($trades) === 0) {
+            return redirect()->back()->with('error', 'Nenhuma operação encontrada na nota');
+        }
+
+        // extrai resumo
+        $summary = XPParser::extractSummary($text);
+
+        // tenta pegar DATA PREGÃO
+        $noteDate = XPParser::extractTradeDate($text);
+
+        if ($noteDate) {
+
+            $date = Carbon::createFromFormat('d/m/Y', $noteDate)->format('Y-m-d');
+
+        } else {
+
+            // fallback se parser não encontrar a data
+            $dates = array_column($trades, 'date');
+            sort($dates);
+
+            $date = Carbon::createFromFormat('d/m/Y', $dates[0])->format('Y-m-d');
+
+        }
+
         // cria registro da nota
-        $note = BrokerNote::create([
+        $import = Import::create([
+
             'user_id' => 1,
             'note_number' => $noteNumber,
             'broker' => $broker,
-            'source_file' => $path
+            'trade_date' => $date,
+
+            'gross_value' => $summary['gross_value'] ?? 0,
+            'operational_fee' => $summary['operational_fee'] ?? 0,
+            'bmf_registration_fee' => $summary['bmf_registration_fee'] ?? 0,
+            'bmf_fees' => $summary['bmf_fees'] ?? 0,
+
+            'irrf_daytrade_proj' => $summary['irrf_daytrade_proj'] ?? 0,
+
+            'total_costs' => $summary['total_costs'] ?? 0,
+            'daytrade_adjustment' => $summary['daytrade_adjustment'] ?? 0,
+            'net_total' => $summary['net_total'] ?? 0,
+
+            'file_name' => $path
         ]);
 
-        $trades = XPParser::parse($text);
-
+        // salva trades
         foreach ($trades as $trade) {
 
-            $date = Carbon::createFromFormat('d/m/Y', $trade['date'])->format('Y-m-d');
-
             Trade::create([
+                'import_id' => $import->id,
                 'user_id' => 1,
-                'note_id' => $note->id,
-                'trade_date' => $date,
+                'trade_date' => $date, // usa sempre a data da nota
                 'broker' => $broker,
                 'asset' => $trade['asset'],
                 'market' => 'futures',
@@ -78,9 +123,12 @@ class UploadController extends Controller
                 'trade_type' => 'daytrade',
                 'source_file' => $path
             ]);
+
         }
 
-        return redirect()->back()->with('success', 'Trades importados com sucesso');
+        return redirect()
+            ->route('imports.index')
+            ->with('success', 'Nota importada com sucesso');
 
     }
 
