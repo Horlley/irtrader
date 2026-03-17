@@ -3,6 +3,7 @@
 namespace App\Services\Trading;
 
 use App\Models\Trade;
+use App\Models\Import;
 
 class MonthlyMarketResultService
 {
@@ -17,19 +18,16 @@ class MonthlyMarketResultService
             ->get();
 
         $markets = [
-            'dolar' => ['gross' => 0, 'net' => 0],
-            'indice' => ['gross' => 0, 'net' => 0]
+            'dolar' => ['gross' => 0],
+            'indice' => ['gross' => 0]
         ];
 
+        // 🔹 BRUTO (CORRETO)
         $grouped = [];
 
         foreach ($trades as $t) {
             $grouped[$t->asset][] = $t;
         }
-
-        // 🔥 total bruto geral (para rateio)
-        $totalGrossAll = 0;
-        $assetResults = [];
 
         foreach ($grouped as $asset => $ops) {
 
@@ -40,13 +38,8 @@ class MonthlyMarketResultService
 
                 $value = $trade->quantity * $trade->price;
 
-                if ($trade->side === 'buy') {
-                    $buy += $value;
-                }
-
-                if ($trade->side === 'sell') {
-                    $sell += $value;
-                }
+                if ($trade->side === 'buy') $buy += $value;
+                if ($trade->side === 'sell') $sell += $value;
             }
 
             if (str_starts_with($asset, 'WDO')) {
@@ -61,47 +54,31 @@ class MonthlyMarketResultService
 
             $gross = ($sell - $buy) * $multiplier;
 
-            $assetResults[] = [
-                'asset' => $asset,
-                'market' => $market,
-                'gross' => $gross,
-                'import' => $ops[0]->import ?? null
-            ];
-
-            $totalGrossAll += abs($gross);
-        }
-
-        // 🔥 agora aplica rateio proporcional
-        foreach ($assetResults as $item) {
-
-            $market = $item['market'];
-            $gross = $item['gross'];
-            $import = $item['import'];
-
-            $totalCost = $import->total_costs ?? 0;
-
-            $proportion = $totalGrossAll > 0
-                ? abs($gross) / $totalGrossAll
-                : 0;
-
-            $costShare = $totalCost * $proportion;
-
-            $net = $gross - $costShare;
-
             $markets[$market]['gross'] += $gross;
-            $markets[$market]['net'] += $net;
         }
+
+        // 🔥 LÍQUIDO REAL (SEM DISTORÇÃO)
+        $importIds = $trades->pluck('import_id')->unique();
+
+        $imports = Import::whereIn('id', $importIds)->get();
+
+        $totalNet = $imports->sum('net_total');
 
         return [
             [
                 'market' => 'Mercado futuro dólar',
                 'gross' => round($markets['dolar']['gross'], 2),
-                'net' => round($markets['dolar']['net'], 2)
+                'net' => null // 🔥 não mentimos dado
             ],
             [
                 'market' => 'Mercado futuro índice',
                 'gross' => round($markets['indice']['gross'], 2),
-                'net' => round($markets['indice']['net'], 2)
+                'net' => null // 🔥 não mentimos dado
+            ],
+            [
+                'market' => 'TOTAL REAL',
+                'gross' => round($markets['dolar']['gross'] + $markets['indice']['gross'], 2),
+                'net' => round($totalNet, 2)
             ]
         ];
     }

@@ -46,16 +46,25 @@ class XPParser
                 $result = 0;
 
                 // normalmente vem após "DAY TRADE"
-                foreach ($parts as $part) {
+                $result = 0;
 
-                    if (preg_match('/^([0-9\.,]+)([CD])$/', $part, $m)) {
+                for ($i = 0; $i < count($parts) - 1; $i++) {
 
-                        $value = str_replace('.', '', $m[1]);
+                    $current = $parts[$i];
+                    $next = $parts[$i + 1];
+
+                    // pega padrão: "172,00 C" ou "7,74 D"
+                    if (
+                        preg_match('/-?\d{1,3}(?:\.\d{3})*,\d{2}/', $current) &&
+                        in_array($next, ['C', 'D'])
+                    ) {
+
+                        $value = str_replace('.', '', $current);
                         $value = str_replace(',', '.', $value);
 
                         $result = (float) $value;
 
-                        if ($m[2] === 'D') {
+                        if ($next === 'D') {
                             $result *= -1;
                         }
 
@@ -73,7 +82,7 @@ class XPParser
                 ];
             }
         }
-
+        
         return $trades;
     }
 
@@ -150,6 +159,8 @@ class XPParser
                 }
             }
 
+
+
             // Total líquido da nota
             if (str_contains($line, 'Total líquido da nota')) {
 
@@ -172,6 +183,44 @@ class XPParser
         }
 
         return $summary;
+    }
+
+
+    public static function extractMarketResults($text)
+    {
+        $result = [
+            'dolar' => 0,
+            'indice' => 0
+        ];
+
+        $lines = explode("\n", $text);
+
+        foreach ($lines as $line) {
+
+            $line = trim($line);
+            $line = preg_replace('/\s+/', ' ', $line);
+
+            // 🔥 DÓLAR (linha específica do resumo)
+            if (preg_match('/Mercado futuro.*d[oó]lar.*?(-?\d{1,3}(?:\.\d{3})*,\d{2})$/i', $line, $m)) {
+                $result['dolar'] = self::toFloat($m[1]);
+            }
+
+            // 🔥 ÍNDICE (linha específica do resumo)
+            if (preg_match('/Mercado futuro.*[íi]ndice.*?(-?\d{1,3}(?:\.\d{3})*,\d{2})$/i', $line, $m)) {
+                $result['indice'] = self::toFloat($m[1]);
+            }
+        }
+
+        return $result;
+    }
+
+    private static function toFloat($value)
+    {
+        // remove pontos de milhar e troca vírgula por ponto
+        $value = str_replace('.', '', $value);
+        $value = str_replace(',', '.', $value);
+
+        return (float) $value;
     }
 
     private static function money($value, $type = 'C')

@@ -5,10 +5,8 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Services\Tax\TaxEngine;
 use App\Models\TaxResult;
-use Illuminate\Support\Facades\DB;
 use App\Models\Darf;
 use App\Services\Trading\AnnualTaxService;
-use App\Services\Trading\MonthlyMarketResultService;
 use Illuminate\Support\Facades\Auth;
 
 class TaxController extends Controller
@@ -28,7 +26,7 @@ class TaxController extends Controller
         return view('pages.darfs', compact('darfs'));
     }
 
-    // 🔥 RELATÓRIO MENSAL (AGORA USANDO SERVICE CORRETO)
+    // 🔥 RELATÓRIO MENSAL (CORRIGIDO)
     public function report(Request $request)
     {
         $userId = Auth::id() ?? 1;
@@ -36,15 +34,23 @@ class TaxController extends Controller
         $year = $request->get('year', now()->year);
         $month = $request->get('month', now()->month);
 
-        $data = MonthlyMarketResultService::calculate($userId, $year, $month);
+        // 🔥 calcula o ano inteiro
+        $result = AnnualTaxService::calculate($userId, $year);
 
-        $total = collect($data)->sum('net');
+        // 🔥 pega apenas o mês selecionado
+        $selectedMonth = str_pad($month, 2, '0', STR_PAD_LEFT);
+
+        $monthData = collect($result['months'])
+            ->firstWhere('month', $selectedMonth);
+
+        // 🔥 total agora é do mês (CORREÇÃO PRINCIPAL)
+        $total = $monthData['result'] ?? 0;
 
         return view('pages.tax_report', [
-            'data' => $data,
+            'months' => $result['months'], // usado na view
+            'total' => $total,             // 🔥 corrigido
             'year' => $year,
-            'month' => $month,
-            'total' => $total
+            'month' => $month
         ]);
     }
 
@@ -57,7 +63,7 @@ class TaxController extends Controller
             ->with('success', 'Apuração recalculada');
     }
 
-    // 🔥 RELATÓRIO ANUAL (AGORA DINÂMICO)
+    // 🔥 RELATÓRIO ANUAL
     public function annual($year)
     {
         $userId = Auth::id() ?? 1;

@@ -44,38 +44,98 @@
 
     <tbody>
 
-        @foreach($data as $r)
+        @php
+        $selectedMonth = str_pad($month, 2, '0', STR_PAD_LEFT);
+        $totalGross = 0;
+        $totalNet = 0;
+        @endphp
 
+        @foreach($months as $m)
+
+        @if($m['month'] == $selectedMonth)
+
+        {{-- DÓLAR --}}
         <tr>
-            <td>{{ $year }}-{{ str_pad($month, 2, '0', STR_PAD_LEFT) }}</td>
+            <td>{{ $year }}-{{ $m['month'] }}</td>
 
-            <td>{{ $r['market'] }}</td>
+            <td>Mercado futuro dólar</td>
 
             <td>
-                R$ {{ number_format($r['gross'], 2, ',', '.') }}
+                @php $gross = $m['markets']['dolar']['profit'] ?? 0; @endphp
+                R$ {{ number_format($gross, 2, ',', '.') }}
             </td>
 
-            <td style="font-weight: bold; color: {{ $r['net'] >= 0 ? 'green' : 'red' }}">
-                R$ {{ number_format($r['net'], 2, ',', '.') }}
+            <td style="font-weight: bold; color: {{ ($m['markets']['dolar']['net'] ?? 0) >= 0 ? 'green' : 'red' }}">
+                @php $net = $m['markets']['dolar']['net'] ?? 0; @endphp
+                R$ {{ number_format($net, 2, ',', '.') }}
             </td>
         </tr>
+
+        @php
+        $totalGross += $gross;
+        $totalNet += $net;
+        @endphp
+
+        {{-- ÍNDICE --}}
+        <tr>
+            <td>{{ $year }}-{{ $m['month'] }}</td>
+
+            <td>Mercado futuro índice</td>
+
+            <td>
+                @php $gross = $m['markets']['indice']['profit'] ?? 0; @endphp
+                R$ {{ number_format($gross, 2, ',', '.') }}
+            </td>
+
+            <td style="font-weight: bold; color: {{ ($m['markets']['indice']['net'] ?? 0) >= 0 ? 'green' : 'red' }}">
+                @php $net = $m['markets']['indice']['net'] ?? 0; @endphp
+                R$ {{ number_format($net, 2, ',', '.') }}
+            </td>
+        </tr>
+
+        @php
+        $totalGross += $gross;
+        $totalNet += $net;
+        @endphp
+
+        {{-- TOTAL --}}
+        <tr>
+            <td>{{ $year }}-{{ $m['month'] }}</td>
+
+            <td><strong>TOTAL REAL</strong></td>
+
+            <td>
+                <strong>
+                    R$ {{ number_format($m['result'], 2, ',', '.') }}
+                </strong>
+            </td>
+
+            <td style="font-weight: bold; color: {{ ($m['result'] - $m['tax']) >= 0 ? 'green' : 'red' }}">
+                <strong>
+                    R$ {{ number_format($m['result'] - $m['tax'], 2, ',', '.') }}
+                </strong>
+            </td>
+        </tr>
+
+        @endif
 
         @endforeach
 
     </tbody>
+
     <tfoot>
-    <tr>
-        <th colspan="2">Total</th>
+        <tr>
+            <th colspan="2">Total</th>
 
-        <th>
-            R$ {{ number_format(collect($data)->sum('gross'), 2, ',', '.') }}
-        </th>
+            <th>
+                R$ {{ number_format($totalGross, 2, ',', '.') }}
+            </th>
 
-        <th style="color: {{ collect($data)->sum('net') >= 0 ? 'green' : 'red' }}">
-            R$ {{ number_format(collect($data)->sum('net'), 2, ',', '.') }}
-        </th>
-    </tr>
-</tfoot>
+            <th style="color: {{ $totalNet >= 0 ? 'green' : 'red' }}">
+                R$ {{ number_format($totalNet, 2, ',', '.') }}
+            </th>
+        </tr>
+    </tfoot>
 
 </table>
 

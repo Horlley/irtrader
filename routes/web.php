@@ -7,7 +7,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\TradeController;
 use App\Http\Controllers\ImportController;
 use App\Http\Controllers\TaxController;
-use App\Http\Controllers\TaxReportController;
+
 
 Route::get('/', [UploadController::class, 'index']);
 
@@ -48,11 +48,7 @@ Route::get('/tax', [TaxController::class, 'index'])->name('tax.index');
 
 Route::post('/tax/calculate', [TaxController::class, 'calculate'])->name('tax.calculate');
 
-Route::get('/tax/report', [TaxReportController::class, 'index'])->name('tax.report');
-
 Route::get('/tax/annual/{year}', [TaxController::class, 'annual'])->name('tax.annual');
 
 Route::get('/darfs', [TaxController::class, 'darfs'])->name('darfs.index');
-
-// 🔥 NOVO RELATÓRIO (separado e organizado)
-Route::get('/tax-report', [TaxReportController::class, 'index'])->name('tax.monthly');
+Route::get('/tax/report', [TaxController::class, 'report'])->name('tax.report');
