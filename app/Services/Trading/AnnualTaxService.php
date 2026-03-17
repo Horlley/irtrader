@@ -2,6 +2,7 @@
 
 namespace App\Services\Trading;
 
+use App\Models\Import;
 use App\Models\TaxConfig;
 
 class AnnualTaxService
@@ -10,12 +11,33 @@ class AnnualTaxService
     public static function calculate($userId, $year)
     {
 
+        // 🔥 busca config do usuário
         $config = TaxConfig::where('user_id', $userId)
             ->where('year', $year)
             ->first();
 
+        // 🔥 fallback global (config padrão)
+        if (!$config) {
+            $config = TaxConfig::where('user_id', 0)
+                ->where('year', 0)
+                ->first();
+        }
+
+        // 🔥 valores iniciais
         $lossCarry = $config->initial_loss_daytrade ?? 0;
         $irrfCarry = $config->initial_irrf_daytrade ?? 0;
+
+        // 🔥 normalizações IMPORTANTES
+        $lossCarry = -abs($lossCarry); // prejuízo sempre negativo
+        $irrfCarry = abs($irrfCarry);  // IRRF sempre positivo
+
+        // 🔥 busca imports agrupados por mês
+        $imports = Import::where('user_id', $userId)
+            ->whereYear('trade_date', $year)
+            ->get()
+            ->groupBy(function ($i) {
+                return date('Y-m', strtotime($i->trade_date));
+            });
 
         $months = [];
 
@@ -25,18 +47,23 @@ class AnnualTaxService
 
         for ($m = 1; $m <= 12; $m++) {
 
-            $monthly = MonthlyMarketResultService::calculate($userId, $year, $m);
+            $monthKey = $year . '-' . str_pad($m, 2, '0', STR_PAD_LEFT);
 
-            $result = collect($monthly)->sum('result');
+            $items = $imports[$monthKey] ?? collect();
 
-            // 🔹 prejuízo anterior
+            // 🔹 resultado e IRRF do mês (dados reais da nota)
+            $profit = $items->sum('net_total');
+            $irrfMonth = $items->sum('irrf_daytrade_proj');
+
+            // 🔹 guarda prejuízo anterior
             $previousLoss = $lossCarry;
 
             // 🔹 aplica compensação
-            $base = $result + $lossCarry;
+            $base = $profit + $lossCarry;
 
             if ($base < 0) {
 
+                // continua acumulando prejuízo
                 $lossCarry = $base;
                 $tax = 0;
                 $baseCalc = 0;
@@ -45,28 +72,27 @@ class AnnualTaxService
 
                 $tax = $base * 0.20;
                 $baseCalc = $base;
+
+                // zerou prejuízo
                 $lossCarry = 0;
             }
 
-            // 🔹 IRRF do mês (placeholder)
-            $irrfMonth = abs($result) * 0.0001;
-
-            // 🔹 acumula IRRF
+            // 🔥 IRRF acumulado real
             $irrfCarry += $irrfMonth;
 
-            // 🔥 calcula quanto IRRF pode usar
+            // 🔥 quanto pode usar de IRRF
             $irrfUsed = min($tax, $irrfCarry);
 
-            // 🔥 imposto final
+            // 🔥 DARF final
             $darf = $tax - $irrfUsed;
 
-            // 🔥 atualiza saldo de IRRF
+            // 🔥 atualiza saldo IRRF
             $irrfCarry -= $irrfUsed;
 
             $months[] = [
                 'month' => str_pad($m, 2, '0', STR_PAD_LEFT),
 
-                'result' => $result,
+                'result' => $profit,
 
                 'previous_loss' => $previousLoss,
                 'loss_carry' => $lossCarry,
@@ -75,13 +101,13 @@ class AnnualTaxService
                 'tax' => $tax,
 
                 'irrf_month' => $irrfMonth,
-                'irrf_used' => $irrfUsed,          // 🔥 novo
-                'irrf_balance' => $irrfCarry,      // 🔥 novo
+                'irrf_used' => $irrfUsed,
+                'irrf_balance' => $irrfCarry,
 
                 'darf' => $darf
             ];
 
-            $totalProfit += $result;
+            $totalProfit += $profit;
             $totalTax += $tax;
             $totalIrrf += $irrfMonth;
         }
