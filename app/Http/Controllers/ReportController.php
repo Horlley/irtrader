@@ -4,20 +4,18 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Services\Trading\TradeCalculator;
+use App\Services\Trading\MonthlyMarketResultService;
 
 class ReportController extends Controller
 {
 
     public function monthly()
     {
+        $year = request('year', now()->year);
+        $month = request('month', now()->month);
 
-        $year = now()->year;
-        $month = now()->month;
+        $data = MonthlyMarketResultService::calculate(1, $year, $month);
 
-        $result = TradeCalculator::monthlyResult(1, $year, $month);
-
-        return view('report.monthly', compact('result'));
-
+        return view('reports.monthly', compact('data', 'year', 'month'));
     }
-
 }

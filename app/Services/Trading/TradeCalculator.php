@@ -16,30 +16,68 @@ class TradeCalculator
             ->orderBy('trade_date')
             ->get();
 
-        $buyTotal = 0;
-        $sellTotal = 0;
+        // 🔹 agrupar por ativo
+        $grouped = [];
 
-        foreach ($trades as $trade) {
-
-            $value = $trade->quantity * $trade->price;
-
-            if ($trade->side === 'buy') {
-                $buyTotal += $value;
-            }
-
-            if ($trade->side === 'sell') {
-                $sellTotal += $value;
-            }
-
+        foreach ($trades as $t) {
+            $grouped[$t->asset][] = $t;
         }
 
-        $result = $sellTotal - $buyTotal;
+        $totalResult = 0;
+        $details = [];
+
+        foreach ($grouped as $asset => $ops) {
+
+            $buy = 0;
+            $sell = 0;
+            $qty = 0;
+
+            foreach ($ops as $trade) {
+
+                $value = $trade->quantity * $trade->price;
+
+                if ($trade->side === 'buy') {
+                    $buy += $value;
+                    $qty += $trade->quantity;
+                }
+
+                if ($trade->side === 'sell') {
+                    $sell += $value;
+                }
+            }
+
+            $multiplier = self::getMultiplier($asset);
+
+            $result = ($sell - $buy) * $multiplier;
+
+            $totalResult += $result;
+
+            $details[] = [
+                'asset' => $asset,
+                'buy_total' => $buy,
+                'sell_total' => $sell,
+                'quantity' => $qty,
+                'multiplier' => $multiplier,
+                'result' => $result
+            ];
+        }
 
         return [
-            'buy_total' => $buyTotal,
-            'sell_total' => $sellTotal,
-            'result' => $result
+            'total_result' => $totalResult,
+            'details' => $details
         ];
     }
 
+    private static function getMultiplier($asset)
+    {
+        if (str_starts_with($asset, 'WIN')) {
+            return 0.2;
+        }
+
+        if (str_starts_with($asset, 'WDO')) {
+            return 10;
+        }
+
+        return 1;
+    }
 }

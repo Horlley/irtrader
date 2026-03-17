@@ -22,22 +22,14 @@
 
     <tbody>
 
-        @foreach($results as $r)
-
+        @foreach($months as $m)
         <tr>
-
-            <td>{{ $r->month }}</td>
-
-            <td>R$ {{ number_format($r->profit_daytrade,2,',','.') }}</td>
-
-            <td>R$ {{ number_format($r->irrf_daytrade,2,',','.') }}</td>
-
-            <td>R$ {{ number_format($r->tax_due,2,',','.') }}</td>
-
-            <td>R$ {{ number_format($r->darf_due,2,',','.') }}</td>
-
+            <td>{{ $year }}-{{ $m['month'] }}</td>
+            <td>R$ {{ number_format($m['result'],2,',','.') }}</td>
+            <td>R$ {{ number_format($m['irrf'],2,',','.') }}</td>
+            <td>R$ {{ number_format($m['tax'],2,',','.') }}</td>
+            <td>R$ {{ number_format($m['darf'],2,',','.') }}</td>
         </tr>
-
         @endforeach
 
     </tbody>
@@ -51,22 +43,22 @@
 
     <tr>
         <td>Lucro Total</td>
-        <td>R$ {{ number_format($totals->total_profit,2,',','.') }}</td>
+        <td>R$ {{ number_format($summary['profit'],2,',','.') }}</td>
     </tr>
 
     <tr>
         <td>IRRF Retido</td>
-        <td>R$ {{ number_format($totals->total_irrf,2,',','.') }}</td>
+        <td>R$ {{ number_format($summary['irrf'],2,',','.') }}</td>
     </tr>
 
     <tr>
         <td>Imposto Devido</td>
-        <td>R$ {{ number_format($totals->total_tax,2,',','.') }}</td>
+        <td>R$ {{ number_format($summary['tax'],2,',','.') }}</td>
     </tr>
 
     <tr>
         <td>DARF Gerada</td>
-        <td>R$ {{ number_format($totals->total_darf,2,',','.') }}</td>
+        <td>R$ {{ number_format($summary['darf'],2,',','.') }}</td>
     </tr>
 
 </table>

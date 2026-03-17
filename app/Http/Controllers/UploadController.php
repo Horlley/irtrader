@@ -11,6 +11,7 @@ use App\Models\Trade;
 use App\Models\Import;
 
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class UploadController extends Controller
 {
@@ -33,8 +34,6 @@ class UploadController extends Controller
         // lê texto do PDF
         $text = PdfReader::read($path);
 
-        //dd($text);
-
         // normaliza texto
         $text = preg_replace("/\r\n|\r/", "\n", $text);
         $text = preg_replace("/\t/", " ", $text);
@@ -42,7 +41,6 @@ class UploadController extends Controller
         // detecta corretora
         $broker = BrokerDetector::detect($text);
 
-        
         if ($broker !== 'xp') {
             return redirect()->back()->with('error', 'Corretora não suportada');
         }
@@ -55,9 +53,7 @@ class UploadController extends Controller
         }
 
         // verifica duplicidade
-        $exists = Import::where('note_number', $noteNumber)->exists();
-
-        if ($exists) {
+        if (Import::where('note_number', $noteNumber)->exists()) {
             return redirect()->back()->with('error', 'Esta nota já foi importada');
         }
 
@@ -75,66 +71,83 @@ class UploadController extends Controller
         $noteDate = XPParser::extractTradeDate($text);
 
         if ($noteDate) {
-
             $date = Carbon::createFromFormat('d/m/Y', $noteDate)->format('Y-m-d');
-
         } else {
-
             // fallback se parser não encontrar a data
             $dates = array_column($trades, 'date');
             sort($dates);
-
             $date = Carbon::createFromFormat('d/m/Y', $dates[0])->format('Y-m-d');
-
         }
 
-        // cria registro da nota
-        $import = Import::create([
+        DB::beginTransaction();
 
-            'user_id' => 1,
-            'note_number' => $noteNumber,
-            'broker' => $broker,
-            'trade_date' => $date,
+        try {
 
-            'gross_value' => $summary['gross_value'] ?? 0,
-            'operational_fee' => $summary['operational_fee'] ?? 0,
-            'bmf_registration_fee' => $summary['bmf_registration_fee'] ?? 0,
-            'bmf_fees' => $summary['bmf_fees'] ?? 0,
-
-            'irrf_daytrade_proj' => $summary['irrf_daytrade_proj'] ?? 0,
-
-            'total_costs' => $summary['total_costs'] ?? 0,
-            'daytrade_adjustment' => $summary['daytrade_adjustment'] ?? 0,
-            'account_normal_total' => $summary['account_normal_total'] ?? 0,
-            'net_total' => $summary['net_total'] ?? 0,
-
-            'file_name' => $path
-        ]);
-
-        
-        // salva trades
-        foreach ($trades as $trade) {
-
-            Trade::create([
-                'import_id' => $import->id,
+            // cria registro da nota
+            $import = Import::create([
                 'user_id' => 1,
-                'trade_date' => $date, // usa sempre a data da nota
+                'note_number' => $noteNumber,
                 'broker' => $broker,
-                'asset' => $trade['asset'],
-                'market' => 'futures',
-                'side' => $trade['side'],
-                'quantity' => $trade['quantity'],
-                'price' => $trade['price'],
-                'trade_type' => 'daytrade',
-                'source_file' => $path
+                'trade_date' => $date,
+
+                'gross_value' => $summary['gross_value'] ?? 0,
+                'operational_fee' => $summary['operational_fee'] ?? 0,
+                'bmf_registration_fee' => $summary['bmf_registration_fee'] ?? 0,
+                'bmf_fees' => $summary['bmf_fees'] ?? 0,
+
+                'irrf_daytrade_proj' => $summary['irrf_daytrade_proj'] ?? 0,
+
+                'total_costs' => $summary['total_costs'] ?? 0,
+                'daytrade_adjustment' => $summary['daytrade_adjustment'] ?? 0,
+                'account_normal_total' => $summary['account_normal_total'] ?? 0,
+                'net_total' => $summary['net_total'] ?? 0,
+
+                'file_name' => $path
             ]);
 
+            // salva trades (NORMALIZANDO SIDE 🔥)
+            foreach ($trades as $trade) {
+
+                $sideRaw = strtoupper(trim($trade['side'] ?? ''));
+
+                $side = null;
+
+                if (in_array($sideRaw, ['C', 'BUY'], true)) {
+                    $side = 'buy';
+                } elseif (in_array($sideRaw, ['V', 'SELL'], true)) {
+                    $side = 'sell';
+                };
+
+                // ignora linhas inválidas
+                if (!$side) {
+                    continue;
+                }
+
+                Trade::create([
+                    'import_id' => $import->id,
+                    'user_id' => 1,
+                    'trade_date' => $date,
+                    'broker' => $broker,
+                    'asset' => $trade['asset'] ?? null,
+                    'market' => 'futures',
+                    'side' => $side,
+                    'quantity' => (int) ($trade['quantity'] ?? 0),
+                    'price' => (float) ($trade['price'] ?? 0),
+                    'trade_type' => 'daytrade',
+                    'source_file' => $path
+                ]);
+            }
+
+            DB::commit();
+        } catch (\Exception $e) {
+
+            DB::rollBack();
+
+            return redirect()->back()->with('error', 'Erro ao importar: ' . $e->getMessage());
         }
 
         return redirect()
             ->route('imports.index')
             ->with('success', 'Nota importada com sucesso');
-
     }
-
 }

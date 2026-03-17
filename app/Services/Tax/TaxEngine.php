@@ -24,7 +24,7 @@ class TaxEngine
 
         $imports = Import::where('user_id', $userId)
             ->whereYear('trade_date', $year)
-            ->orderBy('trade_date')
+            ->orderBy('trade_date', 'desc')
             ->get()
             ->groupBy(function ($i) {
 

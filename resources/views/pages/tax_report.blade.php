@@ -4,48 +4,55 @@
 
 <h2>Relatório Fiscal Mensal</h2>
 
+<h4>
+    Resultado total:
+    <span style="color: {{ $total >= 0 ? 'green' : 'red' }}">
+        R$ {{ number_format($total, 2, ',', '.') }}
+    </span>
+</h4>
+
+<form method="GET">
+    <select name="month">
+        @for($m = 1; $m <= 12; $m++)
+            <option value="{{ $m }}" {{ $month == $m ? 'selected' : '' }}>
+            {{ str_pad($m, 2, '0', STR_PAD_LEFT) }}
+            </option>
+            @endfor
+    </select>
+
+    <select name="year">
+        @for($y = 2024; $y <= now()->year; $y++)
+            <option value="{{ $y }}" {{ $year == $y ? 'selected' : '' }}>
+                {{ $y }}
+            </option>
+            @endfor
+    </select>
+
+    <button type="submit">Filtrar</button>
+</form>
+
 <table class="table table-bordered">
 
     <thead>
-
         <tr>
-
             <th>Mês</th>
             <th>Mercado</th>
             <th>Resultado</th>
-
         </tr>
-
     </thead>
 
     <tbody>
 
-        @foreach($results as $r)
+        @foreach($data as $r)
 
         <tr>
+            <td>{{ $year }}-{{ str_pad($month, 2, '0', STR_PAD_LEFT) }}</td>
 
-            <td>{{ $r->month }}</td>
-
-            <td>
-
-                @if($r->market=='indice')
-
-                Mercado futuro índice
-
-                @else
-
-                Mercado futuro dólar
-
-                @endif
-
-            </td>
+            <td>{{ $r['market'] }}</td>
 
             <td>
-
-                R$ {{ number_format($r->result,2,',','.') }}
-
+                R$ {{ number_format($r['result'], 2, ',', '.') }}
             </td>
-
         </tr>
 
         @endforeach

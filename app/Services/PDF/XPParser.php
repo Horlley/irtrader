@@ -34,17 +34,42 @@ class XPParser
 
                 $date = $parts[3];
 
-                $quantity = $parts[4];
+                $quantity = (int) $parts[4];
 
                 $price = str_replace('.', '', $parts[5]);
                 $price = str_replace(',', '.', $price);
+
+                // =========================
+                // ✅ RESULTADO REAL DA TRADE
+                // =========================
+
+                $result = 0;
+
+                // normalmente vem após "DAY TRADE"
+                foreach ($parts as $part) {
+
+                    if (preg_match('/^([0-9\.,]+)([CD])$/', $part, $m)) {
+
+                        $value = str_replace('.', '', $m[1]);
+                        $value = str_replace(',', '.', $value);
+
+                        $result = (float) $value;
+
+                        if ($m[2] === 'D') {
+                            $result *= -1;
+                        }
+
+                        break;
+                    }
+                }
 
                 $trades[] = [
                     'side' => $side,
                     'asset' => $asset,
                     'date' => $date,
-                    'quantity' => (int) $quantity,
-                    'price' => (float) $price
+                    'quantity' => $quantity,
+                    'price' => (float) $price,
+                    'result' => $result // 🔥 ESSENCIAL
                 ];
             }
         }
@@ -95,7 +120,7 @@ class XPParser
                 }
             }
 
-            // Linha IRRF e taxas
+            // IRRF e taxas
             if (str_contains($line, 'IRRF Day Trade')) {
 
                 $values = trim($lines[$i + 1] ?? '');
@@ -109,8 +134,6 @@ class XPParser
                     $summary['bmf_fees'] = self::money($m[2]);
                 }
             }
-
-
 
             // Ajuste day trade
             if (str_contains($line, 'Ajuste day trade')) {
@@ -127,7 +150,7 @@ class XPParser
                 }
             }
 
-            // Total líquido
+            // Total líquido da nota
             if (str_contains($line, 'Total líquido da nota')) {
 
                 $values = trim($lines[$i + 1] ?? '');
