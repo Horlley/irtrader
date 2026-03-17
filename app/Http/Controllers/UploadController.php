@@ -33,6 +33,8 @@ class UploadController extends Controller
         // lê texto do PDF
         $text = PdfReader::read($path);
 
+        //dd($text);
+
         // normaliza texto
         $text = preg_replace("/\r\n|\r/", "\n", $text);
         $text = preg_replace("/\t/", " ", $text);
@@ -40,6 +42,7 @@ class UploadController extends Controller
         // detecta corretora
         $broker = BrokerDetector::detect($text);
 
+        
         if ($broker !== 'xp') {
             return redirect()->back()->with('error', 'Corretora não suportada');
         }
@@ -102,11 +105,13 @@ class UploadController extends Controller
 
             'total_costs' => $summary['total_costs'] ?? 0,
             'daytrade_adjustment' => $summary['daytrade_adjustment'] ?? 0,
+            'account_normal_total' => $summary['account_normal_total'] ?? 0,
             'net_total' => $summary['net_total'] ?? 0,
 
             'file_name' => $path
         ]);
 
+        
         // salva trades
         foreach ($trades as $trade) {
 

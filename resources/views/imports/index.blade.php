@@ -68,8 +68,11 @@
                                 <th>Corretora</th>
                                 <th>Trades</th>
                                 <th>Valor Negócios</th>
+                                <th>Taxa Reg.</th>
+                                <th>Taxas BM&F</th>
                                 <th>Custos</th>
                                 <th>IRRF</th>
+                                <th>Conta Normal</th>
                                 <th>Resultado</th>
                                 <th>Ações</th>
                             </tr>
@@ -97,6 +100,14 @@
                                 </td>
 
                                 <td>
+                                    R$ {{ number_format($import->bmf_registration_fee ?? 0,2,',','.') }}
+                                </td>
+
+                                <td>
+                                    R$ {{ number_format($import->bmf_fees ?? 0,2,',','.') }}
+                                </td>
+
+                                <td>
                                     R$ {{ number_format($import->total_costs ?? 0,2,',','.') }}
                                 </td>
 
@@ -105,17 +116,21 @@
                                 </td>
 
                                 <td>
+                                    R$ {{ number_format($import->account_normal_total ?? 0,2,',','.') }}
+                                </td>
 
-                                    @if(($import->daytrade_adjustment ?? 0) > 0)
+                                <td>
+
+                                    @if(($import->net_total ?? 0) > 0)
 
                                     <span class="text-success fw-bold">
-                                        +{{ number_format($import->daytrade_adjustment,2,',','.') }}
+                                        +{{ number_format($import->net_total,2,',','.') }}
                                     </span>
 
-                                    @elseif(($import->daytrade_adjustment ?? 0) < 0)
+                                    @elseif(($import->net_total ?? 0) < 0)
 
                                         <span class="text-danger fw-bold">
-                                        {{ number_format($import->daytrade_adjustment,2,',','.') }}
+                                        {{ number_format($import->net_total,2,',','.') }}
                                         </span>
 
                                         @else
@@ -235,9 +250,13 @@
 
             trades.forEach(function(t) {
 
+                let side = t.side === 'buy' ?
+                    '<span class="text-success">Compra</span>' :
+                    '<span class="text-danger">Venda</span>';
+
                 html += '<tr>';
                 html += '<td>' + t.asset + '</td>';
-                html += '<td>' + t.side + '</td>';
+                html += '<td>' + side + '</td>';
                 html += '<td>' + t.quantity + '</td>';
                 html += '<td>' + Number(t.price).toLocaleString("pt-BR", {
                     minimumFractionDigits: 2
