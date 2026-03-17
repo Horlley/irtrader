@@ -16,17 +16,20 @@ class MonthlyMarketResultService
             ->whereMonth('trade_date', $month)
             ->get();
 
-        // 🔹 agrupar por ativo
+        $markets = [
+            'dolar' => ['gross' => 0, 'net' => 0],
+            'indice' => ['gross' => 0, 'net' => 0]
+        ];
+
         $grouped = [];
 
         foreach ($trades as $t) {
             $grouped[$t->asset][] = $t;
         }
 
-        $markets = [
-            'dolar' => 0,
-            'indice' => 0
-        ];
+        // 🔥 total bruto geral (para rateio)
+        $totalGrossAll = 0;
+        $assetResults = [];
 
         foreach ($grouped as $asset => $ops) {
 
@@ -46,7 +49,6 @@ class MonthlyMarketResultService
                 }
             }
 
-            // 🔹 identifica mercado + multiplicador
             if (str_starts_with($asset, 'WDO')) {
                 $multiplier = 10;
                 $market = 'dolar';
@@ -57,27 +59,49 @@ class MonthlyMarketResultService
                 continue;
             }
 
-            // 🔹 resultado bruto
-            $result = ($sell - $buy) * $multiplier;
+            $gross = ($sell - $buy) * $multiplier;
 
-            // 🔥 custo da nota (uma vez só)
-            $import = $ops[0]->import ?? null;
-            $cost = $import->total_costs ?? 0;
+            $assetResults[] = [
+                'asset' => $asset,
+                'market' => $market,
+                'gross' => $gross,
+                'import' => $ops[0]->import ?? null
+            ];
 
-            // 🔹 distribui custo proporcional simples
-            $result -= $cost;
+            $totalGrossAll += abs($gross);
+        }
 
-            $markets[$market] += $result;
+        // 🔥 agora aplica rateio proporcional
+        foreach ($assetResults as $item) {
+
+            $market = $item['market'];
+            $gross = $item['gross'];
+            $import = $item['import'];
+
+            $totalCost = $import->total_costs ?? 0;
+
+            $proportion = $totalGrossAll > 0
+                ? abs($gross) / $totalGrossAll
+                : 0;
+
+            $costShare = $totalCost * $proportion;
+
+            $net = $gross - $costShare;
+
+            $markets[$market]['gross'] += $gross;
+            $markets[$market]['net'] += $net;
         }
 
         return [
             [
                 'market' => 'Mercado futuro dólar',
-                'result' => round($markets['dolar'], 2)
+                'gross' => round($markets['dolar']['gross'], 2),
+                'net' => round($markets['dolar']['net'], 2)
             ],
             [
                 'market' => 'Mercado futuro índice',
-                'result' => round($markets['indice'], 2)
+                'gross' => round($markets['indice']['gross'], 2),
+                'net' => round($markets['indice']['net'], 2)
             ]
         ];
     }

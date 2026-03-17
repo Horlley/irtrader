@@ -37,7 +37,8 @@
         <tr>
             <th>Mês</th>
             <th>Mercado</th>
-            <th>Resultado</th>
+            <th>Resultado Bruto</th>
+            <th>Resultado Líquido</th>
         </tr>
     </thead>
 
@@ -51,13 +52,30 @@
             <td>{{ $r['market'] }}</td>
 
             <td>
-                R$ {{ number_format($r['result'], 2, ',', '.') }}
+                R$ {{ number_format($r['gross'], 2, ',', '.') }}
+            </td>
+
+            <td style="font-weight: bold; color: {{ $r['net'] >= 0 ? 'green' : 'red' }}">
+                R$ {{ number_format($r['net'], 2, ',', '.') }}
             </td>
         </tr>
 
         @endforeach
 
     </tbody>
+    <tfoot>
+    <tr>
+        <th colspan="2">Total</th>
+
+        <th>
+            R$ {{ number_format(collect($data)->sum('gross'), 2, ',', '.') }}
+        </th>
+
+        <th style="color: {{ collect($data)->sum('net') >= 0 ? 'green' : 'red' }}">
+            R$ {{ number_format(collect($data)->sum('net'), 2, ',', '.') }}
+        </th>
+    </tr>
+</tfoot>
 
 </table>
 

@@ -15,7 +15,7 @@ class ImportController extends Controller
     {
 
         $imports = \App\Models\Import::withCount('trades')
-            ->orderBy('trade_date', 'desc')
+            ->orderBy('trade_date', 'asc')            
             ->get();
 
         return view('imports.index', compact('imports'));

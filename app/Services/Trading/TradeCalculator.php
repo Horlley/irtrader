@@ -13,7 +13,7 @@ class TradeCalculator
         $trades = Trade::where('user_id', $userId)
             ->whereYear('trade_date', $year)
             ->whereMonth('trade_date', $month)
-            ->orderBy('trade_date')
+            ->orderBy('trade_date', 'desc')
             ->get();
 
         // 🔹 agrupar por ativo

@@ -87,7 +87,9 @@
 
                                 <td></td>
 
-                                <td>{{ \Carbon\Carbon::parse($import->trade_date)->format('d/m/Y') }}</td>
+                                <td data-order="{{ \Carbon\Carbon::parse($import->trade_date)->format('Y-m-d') }}">
+                                    {{ \Carbon\Carbon::parse($import->trade_date)->format('d/m/Y') }}
+                                </td>
 
                                 <td>{{ $import->note_number }}</td>
 

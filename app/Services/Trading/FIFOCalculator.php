@@ -11,8 +11,9 @@ class FIFOCalculator
     {
 
         $trades = Trade::where('user_id', $userId)
-            ->orderBy('trade_date')
+            ->orderBy('trade_date', 'desc')
             ->orderBy('id')
+            ->paginate(10)
             ->get();
 
         $positions = [];

@@ -19,7 +19,7 @@ class TaxReportController extends Controller
         $data = MonthlyMarketResultService::calculate($userId, $year, $month);
 
         // 🔥 ESSA LINHA É OBRIGATÓRIA
-        $total = collect($data)->sum('result');
+        $total = collect($data)->sum('net');
 
         return view('pages.tax_report', [
             'data' => $data,

@@ -11,7 +11,7 @@ class DayTradeDetector
     {
 
         $trades = Trade::where('user_id', $userId)
-            ->orderBy('trade_date')
+            ->orderBy('trade_date', 'desc')
             ->orderBy('id')
             ->get()
             ->groupBy(function ($trade) {
