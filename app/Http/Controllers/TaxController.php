@@ -63,7 +63,6 @@ class TaxController extends Controller
             ->with('success', 'Apuração recalculada');
     }
 
-    // 🔥 RELATÓRIO ANUAL
     public function annual($year)
     {
         $userId = Auth::id() ?? 1;
@@ -73,6 +72,18 @@ class TaxController extends Controller
         return view('pages.tax_annual', [
             'months' => $data['months'],
             'summary' => $data['summary'],
+            'year' => $year
+        ]);
+    }
+
+    public function reportIr($year)
+    {
+        $userId = \Auth::id() ?? 1;
+
+        $data = \App\Services\Trading\AnnualTaxService::calculate($userId, $year);
+
+        return view('pages.tax_report_ir', [
+            'months' => $data['months'],
             'year' => $year
         ]);
     }

@@ -7,10 +7,8 @@ use App\Models\TaxConfig;
 
 class AnnualTaxService
 {
-
     public static function calculate($userId, $year)
     {
-
         $config = TaxConfig::where('user_id', $userId)
             ->where('year', $year)
             ->first();
@@ -21,8 +19,8 @@ class AnnualTaxService
                 ->first();
         }
 
-        // 🔥 PREJUÍZO SEMPRE POSITIVO
-        $lossCarry = abs($config->initial_loss_daytrade ?? 0);
+        // 🔥 PREJUÍZO SEMPRE NEGATIVO
+        $lossCarry = -abs($config->initial_loss_daytrade ?? 0);
 
         // 🔥 IRRF ACUMULADO
         $irrfCarry = abs($config->initial_irrf_daytrade ?? 0);
@@ -43,95 +41,48 @@ class AnnualTaxService
             $monthKey = $year . '-' . str_pad($m, 2, '0', STR_PAD_LEFT);
             $items = $imports->get($monthKey, collect());
 
-            $markets = [
-                'dolar' => 0,
-                'indice' => 0
-            ];
-
-            foreach ($items as $item) {
-
-                $trades = json_decode($item->trades_json ?? '[]', true);
-
-                // 🔥 FALLBACK 1 (dados antigos)
-                if (!$trades || count($trades) === 0) {
-
-                    $markets['dolar'] += $item->result_dolar ?? 0;
-                    $markets['indice'] += $item->result_indice ?? 0;
-
-                    continue;
-                }
-
-                foreach ($trades as $trade) {
-
-                    $asset = $trade['asset'] ?? '';
-                    $result = $trade['result'] ?? 0;
-
-                    if (str_contains($asset, 'WDO')) {
-                        $markets['dolar'] += $result;
-                    }
-
-                    if (str_contains($asset, 'WIN')) {
-                        $markets['indice'] += $result;
-                    }
-                }
-            }
-
-            // 🔹 TOTAL DO MÊS
+            // 🔹 RESULTADO DO MÊS (BASE OFICIAL)
             $profit = $items->sum('net_total');
             $irrfMonth = $items->sum('irrf_daytrade_proj');
 
-            // 🔥 FALLBACK FINAL (NUNCA ZERO)
-            $totalMarkets = $markets['dolar'] + $markets['indice'];
+            // 🔹 MARKETS (APENAS VISUAL)
+            $markets = [
+                'vista_acoes' => 0,
+                'vista_ouro' => 0,
 
-            if ($totalMarkets == 0 && $profit != 0) {
+                'opcoes' => 0,
+
+                'dolar' => 0,
+                'indice' => 0,
+                'outros' => 0,
+
+                'termo' => 0
+            ];
+
+            foreach ($items as $item) {
+                $markets['dolar'] += $item->result_dolar ?? 0;
+                $markets['indice'] += $item->result_indice ?? 0;
+                $markets['outros'] += $item->net_total ?? 0;
+            }
+
+            // 🔥 FALLBACK (garante que nunca fica zerado)
+            if (($markets['dolar'] + $markets['indice']) == 0 && $profit != 0) {
                 $markets['indice'] = $profit;
             }
 
             $previousLoss = $lossCarry;
 
             // 🔥 BASE CORRETA
-            $base = $profit - $lossCarry;
+            $base = $profit + $lossCarry;
 
             if ($base <= 0) {
-
-                // 🔥 CONTINUA ACUMULANDO PREJUÍZO
-                $lossCarry = abs($base);
+                $lossCarry = $base;
                 $tax = 0;
                 $baseCalc = 0;
-
-                $marketDetails = [];
-
-                foreach ($markets as $name => $value) {
-
-                    $marketDetails[$name] = [
-                        'profit' => round($value, 2),
-                        'tax' => 0,
-                        'net' => round($value, 2)
-                    ];
-                }
-
             } else {
-
-                // 🔥 LUCRO APÓS COMPENSAÇÃO
                 $tax = $base * 0.20;
                 $baseCalc = $base;
-
-                // 🔥 ZERA PREJUÍZO
                 $lossCarry = 0;
-
-                $marketDetails = [];
-
-                foreach ($markets as $name => $value) {
-
-                    $percent = $profit > 0 ? $value / $profit : 0;
-                    $taxShare = $tax * $percent;
-
-                    $marketDetails[$name] = [
-                        'profit' => round($value, 2),
-                        'tax' => round($taxShare, 2),
-                        'net' => round($value - $taxShare, 2)
-                    ];
-                }
             }
 
             // 🔹 IRRF
@@ -141,6 +92,19 @@ class AnnualTaxService
             $darf = $tax - $irrfUsed;
 
             $irrfCarry -= $irrfUsed;
+
+            $irrfPrevious = $irrfCarry + $irrfUsed - $irrfMonth;
+
+            // 🔹 MARKET DETAILS (simples por enquanto)
+            $marketDetails = [];
+
+            foreach ($markets as $name => $value) {
+                $marketDetails[$name] = [
+                    'profit' => round($value, 2),
+                    'tax' => 0,
+                    'net' => round($value, 2)
+                ];
+            }
 
             $months[] = [
                 'month' => str_pad($m, 2, '0', STR_PAD_LEFT),
@@ -156,6 +120,8 @@ class AnnualTaxService
                 'irrf_month' => round($irrfMonth, 2),
                 'irrf_used' => round($irrfUsed, 2),
                 'irrf_balance' => round($irrfCarry, 2),
+
+                'irrf_previous' => round($irrfPrevious, 2),
 
                 'darf' => round($darf, 2),
 

@@ -54,3 +54,5 @@ Route::get('/darfs', [TaxController::class, 'darfs'])->name('darfs.index');
 Route::get('/tax/report', [TaxController::class, 'report'])->name('tax.report');
 
 Route::delete('/imports/{id}', [UploadController::class, 'destroy'])->name('imports.destroy');
+
+Route::get('/tax/report-ir/{year}', [TaxController::class, 'reportIr']);
