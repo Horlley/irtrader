@@ -1,5 +1,7 @@
 <div class="sidebar"
-     x-data="{open:true, taxOpen: {{ request()->is('tax*') || request()->is('darfs*') ? 'true' : 'false' }}}"
+     x-data="{open:true,
+    taxOpen: {{ request()->is('tax*') || request()->is('darfs*') || request()->is('tax/report-ir*') ? 'true' : 'false' }}
+}"
      :class="{'collapsed':!open}">
 
 ```
@@ -36,50 +38,60 @@
 
     <!-- IMPOSTOS -->
 
-    <li>
+    <!-- IMPOSTOS -->
 
-        <a href="#"
-           @click.prevent="taxOpen=!taxOpen"
-           class="{{ request()->is('tax*') || request()->is('darfs*') ? 'active' : '' }}">
+<li>
 
-            <span>💰</span>
-            Impostos
+    <a href="#"
+       @click.prevent="taxOpen=!taxOpen"
+       class="{{ request()->is('tax*') || request()->is('darfs*') ? 'active' : '' }}">
 
-        </a>
+        <span>💰</span>
+        Impostos
 
-        <ul x-show="taxOpen" x-transition style="padding-left:20px">
+    </a>
 
-            <li>
-                <a href="{{ route('tax.index') }}"
-                   class="{{ request()->is('tax') ? 'active' : '' }}">
-                    📊 Apuração Mensal
-                </a>
-            </li>
+    <ul x-show="taxOpen" x-transition style="padding-left:20px">
 
-            <li>
-                <a href="{{ route('tax.report') }}"
-                   class="{{ request()->is('tax/report*') ? 'active' : '' }}">
-                    📈 Resultado por Mercado
-                </a>
-            </li>
+        <li>
+            <a href="{{ route('tax.index') }}"
+               class="{{ request()->is('tax') ? 'active' : '' }}">
+                📊 Apuração Mensal
+            </a>
+        </li>
 
-            <li>
-                <a href="{{ route('tax.annual', date('Y')) }}"
-                   class="{{ request()->is('tax/annual*') ? 'active' : '' }}">
-                    📄 Relatório Anual
-                </a>
-            </li>
+        <li>
+            <a href="{{ route('tax.report') }}"
+               class="{{ request()->is('tax/report*') ? 'active' : '' }}">
+                📈 Resultado por Mercado
+            </a>
+        </li>
 
-            <li>
-                <a href="{{ route('darfs.index') }}"
-                   class="{{ request()->is('darfs*') ? 'active' : '' }}">
-                    🧾 DARFs
-                </a>
-            </li>
+        <!-- 🔥 NOVO RELATÓRIO IR -->
+        <li>
+            <a href="{{ url('/tax/report-ir/' . date('Y')) }}"
+               class="{{ request()->is('tax/report-ir*') ? 'active' : '' }}">
+                🧾 Relatório IR (Receita)
+            </a>
+        </li>
 
-        </ul>
+        <li>
+            <a href="{{ route('tax.annual', date('Y')) }}"
+               class="{{ request()->is('tax/annual*') ? 'active' : '' }}">
+                📄 Relatório Anual
+            </a>
+        </li>
 
-    </li>
+        <li>
+            <a href="{{ route('darfs.index') }}"
+               class="{{ request()->is('darfs*') ? 'active' : '' }}">
+                🧾 DARFs
+            </a>
+        </li>
+
+    </ul>
+
+</li>
 
 
     <li>

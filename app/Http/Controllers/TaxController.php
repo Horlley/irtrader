@@ -78,7 +78,7 @@ class TaxController extends Controller
 
     public function reportIr($year)
     {
-        $userId = \Auth::id() ?? 1;
+        $userId = Auth::id() ?? 1;
 
         $data = \App\Services\Trading\AnnualTaxService::calculate($userId, $year);
 

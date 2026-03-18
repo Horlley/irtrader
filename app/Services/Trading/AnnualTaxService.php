@@ -4,6 +4,7 @@ namespace App\Services\Trading;
 
 use App\Models\Import;
 use App\Models\TaxConfig;
+use App\Services\Trading\MarketClassifier;
 
 class AnnualTaxService
 {
@@ -11,18 +12,11 @@ class AnnualTaxService
     {
         $config = TaxConfig::where('user_id', $userId)
             ->where('year', $year)
-            ->first();
+            ->first()
+            ?? TaxConfig::where('user_id', 0)->where('year', 0)->first();
 
-        if (!$config) {
-            $config = TaxConfig::where('user_id', 0)
-                ->where('year', 0)
-                ->first();
-        }
-
-        // 🔥 PREJUÍZO SEMPRE NEGATIVO
+        // 🔥 ESTADO INICIAL
         $lossCarry = -abs($config->initial_loss_daytrade ?? 0);
-
-        // 🔥 IRRF ACUMULADO
         $irrfCarry = abs($config->initial_irrf_daytrade ?? 0);
 
         $imports = Import::where('user_id', $userId)
@@ -35,44 +29,45 @@ class AnnualTaxService
         $totalProfit = 0;
         $totalTax = 0;
         $totalIrrf = 0;
+        $totalDarf = 0;
 
         for ($m = 1; $m <= 12; $m++) {
 
             $monthKey = $year . '-' . str_pad($m, 2, '0', STR_PAD_LEFT);
             $items = $imports->get($monthKey, collect());
 
-            // 🔹 RESULTADO DO MÊS (BASE OFICIAL)
             $profit = $items->sum('net_total');
             $irrfMonth = $items->sum('irrf_daytrade_proj');
 
-            // 🔹 MARKETS (APENAS VISUAL)
+            // =========================
+            // 🔹 MARKET BREAKDOWN (CENTRALIZADO)
+            // =========================
             $markets = [
-                'vista_acoes' => 0,
-                'vista_ouro' => 0,
-
-                'opcoes' => 0,
-
                 'dolar' => 0,
                 'indice' => 0,
                 'outros' => 0,
-
-                'termo' => 0
             ];
 
             foreach ($items as $item) {
-                $markets['dolar'] += $item->result_dolar ?? 0;
-                $markets['indice'] += $item->result_indice ?? 0;
-                $markets['outros'] += $item->net_total ?? 0;
+
+                $itemMarkets = MarketClassifier::classifyFromItem($item);
+
+                $markets['dolar'] += $itemMarkets['dolar'];
+                $markets['indice'] += $itemMarkets['indice'];
+                $markets['outros'] += $itemMarkets['outros'];
             }
 
-            // 🔥 FALLBACK (garante que nunca fica zerado)
-            if (($markets['dolar'] + $markets['indice']) == 0 && $profit != 0) {
-                $markets['indice'] = $profit;
-            }
+            logger()->info('MARKETS BEFORE NORMALIZE', $markets);
 
+            // 🔥 GARANTE CONSISTÊNCIA COM RESULTADO REAL
+            $markets = MarketClassifier::normalizeTotals($markets, $profit);
+            logger()->info('PROFIT MONTH', ['profit' => $profit]);
+
+            // =========================
+            // 🔹 BASE DE CÁLCULO
+            // =========================
             $previousLoss = $lossCarry;
 
-            // 🔥 BASE CORRETA
             $base = $profit + $lossCarry;
 
             if ($base <= 0) {
@@ -85,17 +80,22 @@ class AnnualTaxService
                 $lossCarry = 0;
             }
 
+            // =========================
             // 🔹 IRRF
+            // =========================
+            $irrfPrevious = $irrfCarry;
+
             $irrfCarry += $irrfMonth;
 
             $irrfUsed = min($tax, $irrfCarry);
-            $darf = $tax - $irrfUsed;
 
             $irrfCarry -= $irrfUsed;
 
-            $irrfPrevious = $irrfCarry + $irrfUsed - $irrfMonth;
+            $darf = max(0, $tax - $irrfUsed);
 
-            // 🔹 MARKET DETAILS (simples por enquanto)
+            // =========================
+            // 🔹 MARKET DETAILS
+            // =========================
             $marketDetails = [];
 
             foreach ($markets as $name => $value) {
@@ -117,11 +117,10 @@ class AnnualTaxService
                 'base' => round($baseCalc, 2),
                 'tax' => round($tax, 2),
 
+                'irrf_previous' => round($irrfPrevious, 2),
                 'irrf_month' => round($irrfMonth, 2),
                 'irrf_used' => round($irrfUsed, 2),
                 'irrf_balance' => round($irrfCarry, 2),
-
-                'irrf_previous' => round($irrfPrevious, 2),
 
                 'darf' => round($darf, 2),
 
@@ -131,6 +130,7 @@ class AnnualTaxService
             $totalProfit += $profit;
             $totalTax += $tax;
             $totalIrrf += $irrfMonth;
+            $totalDarf += $darf;
         }
 
         return [
@@ -139,7 +139,7 @@ class AnnualTaxService
                 'profit' => round($totalProfit, 2),
                 'irrf' => round($totalIrrf, 2),
                 'tax' => round($totalTax, 2),
-                'darf' => round(max(0, $totalTax - $totalIrrf), 2)
+                'darf' => round($totalDarf, 2)
             ]
         ];
     }
