@@ -4,30 +4,64 @@
 
 @section('content')
 
-<h1>Importar Notas (Multi Upload)</h1>
+<div x-data="{tab:'upload'}">
 
-<div id="drop-area" style="
-    border: 2px dashed #ccc;
-    padding: 30px;
-    text-align: center;
-    cursor: pointer;
-    border-radius: 10px;
-    margin-bottom: 20px;
-">
-    <p>Arraste PDFs aqui ou clique</p>
-    <input type="file" id="fileInput" multiple hidden>
+    <!-- 🔥 TABS -->
+    <div style="display:flex; gap:10px; margin-bottom:20px;">
+        
+        <button @click="tab='upload'"
+            :style="tab=='upload' ? activeTab : inactiveTab">
+            ⬆️ Upload em Massa
+        </button>
+
+        <button @click="tab='list'"
+            :style="tab=='list' ? activeTab : inactiveTab">
+            📂 Arquivos Enviados
+        </button>
+
+    </div>
+
+    <!-- ========================= -->
+    <!-- 🔹 UPLOAD -->
+    <!-- ========================= -->
+    <div x-show="tab=='upload'">
+
+        <h1>Importar Notas (Multi Upload)</h1>
+
+        <div id="drop-area" style="
+            border: 2px dashed #ccc;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        ">
+            <p>Arraste PDFs aqui ou clique</p>
+            <input type="file" id="fileInput" multiple hidden>
+        </div>
+
+    </div>
+
+    <!-- ========================= -->
+    <!-- 🔹 LISTA -->
+    <!-- ========================= -->
+    <div x-show="tab=='list'">
+
+        <h2>Arquivos enviados</h2>
+
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Arquivo</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody id="fileList"></tbody>
+        </table>
+
+    </div>
+
 </div>
-
-{{-- LISTA --}}
-<table class="table">
-    <thead>
-        <tr>
-            <th>Arquivo</th>
-            <th>Status</th>
-        </tr>
-    </thead>
-    <tbody id="fileList"></tbody>
-</table>
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
@@ -37,20 +71,31 @@
     const fileList = document.getElementById('fileList');
 
     // =========================
+    // ESTILO TABS
+    // =========================
+    const activeTab = "background:#2563eb;color:#fff;padding:8px 14px;border-radius:6px;border:none;";
+    const inactiveTab = "background:#e5e7eb;padding:8px 14px;border-radius:6px;border:none;";
+
+    // =========================
     // DRAG
     // =========================
-    dropArea.addEventListener('click', () => fileInput.click());
+    if (dropArea) {
 
-    dropArea.addEventListener('drop', (e) => {
-        e.preventDefault();
-        handleFiles(e.dataTransfer.files);
-    });
+        dropArea.addEventListener('click', () => fileInput.click());
 
-    dropArea.addEventListener('dragover', e => e.preventDefault());
+        dropArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            handleFiles(e.dataTransfer.files);
+        });
 
-    fileInput.addEventListener('change', () => {
-        handleFiles(fileInput.files);
-    });
+        dropArea.addEventListener('dragover', e => e.preventDefault());
+    }
+
+    if (fileInput) {
+        fileInput.addEventListener('change', () => {
+            handleFiles(fileInput.files);
+        });
+    }
 
     // =========================
     // PROCESSAR ARQUIVOS
@@ -67,9 +112,9 @@
             let row = document.createElement('tr');
 
             row.innerHTML = `
-            <td>${file.name}</td>
-            <td id="status-${file.name}">⏳ Enviando...</td>
-        `;
+                <td>${file.name}</td>
+                <td id="status-${file.name}">⏳ Enviando...</td>
+            `;
 
             fileList.appendChild(row);
 
@@ -95,10 +140,8 @@
 
             if (xhr.status === 200) {
 
-                // 🔥 STATUS CORRETO (AGORA É FILA)
                 statusCell.innerHTML = '⏳ Em processamento';
 
-                // 🔥 SWEET ALERT
                 if (!window.uploadAlertShown) {
 
                     window.uploadAlertShown = true;

@@ -11,7 +11,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
 function loadStats() {
 
-    Core.get("/api/dashboard")
+    fetch("/api/dashboard")
+        .then(res => res.json())
         .then(r => {
 
             if (!r) return;
@@ -20,6 +21,13 @@ function loadStats() {
             setValue("taxDue", r.tax_due);
             setValue("lossCarry", r.loss_carry);
             setValue("darfPending", r.darf_pending);
+
+            // 🔥 MERCADOS
+            if (r.markets) {
+                setValue("marketDolar", r.markets.dolar);
+                setValue("marketIndice", r.markets.indice);
+                setValue("marketOutros", r.markets.outros);
+            }
 
         })
         .catch(e => {
@@ -34,6 +42,8 @@ function setValue(id, value) {
 
     if (!el) return;
 
+    value = Number(value) || 0;
+
     el.innerText = "R$ " + formatNumber(value);
 
 }
@@ -46,18 +56,17 @@ let profitChart = null;
 
 function loadChart() {
 
-    Core.get("/api/dashboard/chart")
+    fetch("/api/dashboard/chart")
+        .then(res => res.json())
         .then(r => {
 
-            if (!r || !r.labels) return;
+            if (!r || !r.labels || !r.data) return;
 
             const canvas = document.getElementById("profitChart");
 
             if (!canvas) return;
 
             const ctx = canvas.getContext("2d");
-
-            /* destruir gráfico anterior */
 
             if (profitChart) {
                 profitChart.destroy();
@@ -68,40 +77,26 @@ function loadChart() {
                 type: "line",
 
                 data: {
-
                     labels: r.labels,
-
                     datasets: [{
                         label: "Lucro mensal",
-                        data: r.data,
-
+                        data: r.data.map(v => Number(v) || 0),
                         borderColor: "#2563eb",
                         backgroundColor: "rgba(37,99,235,0.12)",
-
                         borderWidth: 3,
-
                         fill: true,
-
                         tension: 0.35,
-
                         pointRadius: 4,
                         pointBackgroundColor: "#2563eb"
-
                     }]
-
                 },
 
                 options: {
-
                     responsive: true,
                     maintainAspectRatio: false,
 
                     plugins: {
-
-                        legend: {
-                            display: false
-                        },
-
+                        legend: { display: false },
                         tooltip: {
                             callbacks: {
                                 label: function (context) {
@@ -109,35 +104,26 @@ function loadChart() {
                                 }
                             }
                         }
-
                     },
 
                     scales: {
-
                         y: {
-
+                            beginAtZero: true,
                             ticks: {
                                 callback: function (value) {
-                                    return "R$ " + value;
+                                    return "R$ " + formatNumber(value);
                                 }
                             },
-
                             grid: {
                                 color: "rgba(0,0,0,0.05)"
                             }
-
                         },
-
                         x: {
-
                             grid: {
                                 display: false
                             }
-
                         }
-
                     }
-
                 }
 
             });
@@ -155,9 +141,9 @@ function loadChart() {
 
 function formatNumber(value) {
 
-    if (!value) return "0";
+    value = Number(value) || 0;
 
-    return Number(value).toLocaleString("pt-BR", {
+    return value.toLocaleString("pt-BR", {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
     });

@@ -9,67 +9,66 @@ class DashboardController extends Controller
 {
 
     public function stats()
-    {
+{
+    $userId = 1;
+    $year = date('Y');
 
-        $last = MonthlyResult::orderByDesc('year')
-            ->orderByDesc('month')
-            ->first();
+    $data = \App\Services\Trading\AnnualTaxService::calculate($userId, $year);
 
-        if (!$last) {
+    // 🔥 pega último mês com movimento
+    $lastMonth = collect($data['months'])
+        ->reverse()
+        ->first(function ($m) {
+            return abs($m['result']) > 0.0001;
+        });
 
-            return [
-
-                'profit_month' => 0,
-                'tax_due' => 0,
-                'loss_carry' => 0,
-                'darf_pending' => 0
-
-            ];
-        }
-
+    if (!$lastMonth) {
         return [
-
-            'profit_month' => $last->profit_daytrade
-                + $last->profit_swing
-                + $last->profit_futuro,
-
-            'tax_due' => $last->tax_due,
-
-            'loss_carry' =>
-            $last->carry_loss_daytrade
-                + $last->carry_loss_swing
-                + $last->carry_loss_futuro,
-
-            'darf_pending' => $last->darf_value ?? 0
-
+            'profit_month' => 0,
+            'tax_due' => 0,
+            'loss_carry' => 0,
+            'darf_pending' => 0,
+            'markets' => [
+                'dolar' => 0,
+                'indice' => 0,
+                'outros' => 0
+            ]
         ];
     }
 
+    return [
+        'profit_month' => $lastMonth['result'],
+        'tax_due' => $lastMonth['tax'],
+        'loss_carry' => $lastMonth['loss_carry'],
+        'darf_pending' => $lastMonth['darf'],
+
+        'markets' => [
+            'dolar' => $lastMonth['markets']['dolar']['profit'] ?? 0,
+            'indice' => $lastMonth['markets']['indice']['profit'] ?? 0,
+            'outros' => $lastMonth['markets']['outros']['profit'] ?? 0,
+        ]
+    ];
+}
+
     public function chart()
     {
+        $userId = 1;
+        $year = date('Y');
 
-        $data = MonthlyResult::orderBy('year')
-            ->orderBy('month')
-            ->get();
+        $data = \App\Services\Trading\AnnualTaxService::calculate($userId, $year);
 
-        $labels = $data->map(function ($m) {
+        $labels = [];
+        $values = [];
 
-            return sprintf('%02d/%s', $m->month, $m->year);
-        });
+        foreach ($data['months'] as $m) {
 
-        $values = $data->map(function ($m) {
-
-            return
-                $m->profit_daytrade +
-                $m->profit_swing +
-                $m->profit_futuro;
-        });
+            $labels[] = $m['month'] . '/' . $year;
+            $values[] = $m['result'];
+        }
 
         return [
-
             'labels' => $labels,
             'data' => $values
-
         ];
     }
 

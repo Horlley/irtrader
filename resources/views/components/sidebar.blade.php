@@ -1,10 +1,10 @@
 <div class="sidebar"
-    x-data="{open:true,
-    taxOpen: {{ request()->is('tax*') || request()->is('darfs*') || request()->is('tax/report-ir*') ? 'true' : 'false' }}
-}"
+    x-data="{
+        open: true,
+        taxOpen: {{ request()->is('tax*') || request()->is('darfs*') || request()->is('tax/report-ir*') ? 'true' : 'false' }}
+    }"
     :class="{'collapsed':!open}">
 
-    ```
     <div class="logo">
         IR Trader
     </div>
@@ -37,7 +37,7 @@
 
         <li>
             <a href="/"
-                class="{{ request()->is('/') ? 'active' : '' }}">
+                class="{{ request()->path() == '/' ? 'active' : '' }}">
                 <span>⬆️</span>
                 Importar em Massa
             </a>
@@ -45,9 +45,10 @@
 
         <!-- IMPOSTOS -->
         <li>
+
             <a href="#"
-                @click.prevent="taxOpen=!taxOpen"
-                class="{{ request()->is('tax*') || request()->is('darfs*') ? 'active' : '' }}">
+                @click.prevent="taxOpen = !taxOpen"
+                class="{{ request()->is('tax*') || request()->is('darfs*') || request()->is('tax/report-ir*') ? 'active' : '' }}">
 
                 <span>💰</span>
                 Impostos
@@ -70,7 +71,6 @@
                     </a>
                 </li>
 
-                <!-- 🔥 NOVO RELATÓRIO IR -->
                 <li>
                     <a href="{{ url('/tax/report-ir/' . date('Y')) }}"
                         class="{{ request()->is('tax/report-ir*') ? 'active' : '' }}">
@@ -96,7 +96,6 @@
 
         </li>
 
-
         <li>
             <a href="/settings"
                 class="{{ request()->is('settings*') ? 'active' : '' }}">
@@ -106,6 +105,5 @@
         </li>
 
     </ul>
-    ```
 
 </div>

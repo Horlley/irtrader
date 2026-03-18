@@ -63,6 +63,25 @@
 
 </div>
 
+<div class="grid">
+
+    <div class="card">
+        <div class="card-title">Dólar</div>
+        <div class="card-value" id="marketDolar">R$ 0,00</div>
+    </div>
+
+    <div class="card">
+        <div class="card-title">Índice</div>
+        <div class="card-value" id="marketIndice">R$ 0,00</div>
+    </div>
+
+    <div class="card">
+        <div class="card-title">Outros</div>
+        <div class="card-value" id="marketOutros">R$ 0,00</div>
+    </div>
+
+</div>
+
 @endsection
 
 @push('scripts')
