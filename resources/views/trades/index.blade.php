@@ -17,6 +17,43 @@
             </a>
 
         </div>
+    </div>
+
+    <div class="row mb-3">
+
+        <div class="col-md-2">
+            <select id="filterYear" class="form-select">
+                <option value="">Ano</option>
+            </select>
+        </div>
+
+        <div class="col-md-2">
+            <select id="filterMonth" class="form-select">
+                <option value="">Mês</option>
+                @for($m=1;$m<=12;$m++)
+                    <option value="{{ str_pad($m,2,'0',STR_PAD_LEFT) }}">
+                    {{ str_pad($m,2,'0',STR_PAD_LEFT) }}
+                    </option>
+                    @endfor
+            </select>
+        </div>
+
+        <div class="col-md-2">
+            <select id="filterSide" class="form-select">
+                <option value="">Lado</option>
+                <option value="Compra">Compra</option>
+                <option value="Venda">Venda</option>
+            </select>
+        </div>
+
+        <div class="col-md-2">
+            <select id="filterMarket" class="form-select">
+                <option value="">Mercado</option>
+                <option value="dolar">Dólar</option>
+                <option value="indice">Índice</option>
+                <option value="outros">Outros</option>
+            </select>
+        </div>
 
     </div>
 
@@ -37,7 +74,7 @@
                         <th>Qtd</th>
                         <th>Preço</th>
                         <th>Resultado</th>
-                        <th>Corretora</th>                        
+                        <th>Corretora</th>
                     </tr>
                 </thead>
 
@@ -59,12 +96,18 @@
 
                         <td>{{ ucfirst($trade->trade_type) }}</td>
 
-                        <td>
+                        <td class="side">
+
+                            <span class="d-none">
+                                {{ $trade->side == 'buy' ? 'Compra' : 'Venda' }}
+                            </span>
+
                             @if($trade->side == 'buy')
                             <span class="badge bg-success">Compra</span>
                             @else
                             <span class="badge bg-danger">Venda</span>
                             @endif
+
                         </td>
 
                         <td>{{ $trade->quantity }}</td>
@@ -130,28 +173,61 @@
 <script>
     $(function() {
 
-        $('#tradesTable').DataTable({
-
+        let table = $('#tradesTable').DataTable({
             responsive: true,
-
             pageLength: 25,
-
             order: [
                 [1, 'desc']
             ],
-
             language: {
                 url: "//cdn.datatables.net/plug-ins/1.13.6/i18n/pt-BR.json"
-            },
+            }
+        });
 
-            dom:
+        // =========================
+        // 🔹 GERAR ANOS AUTOMATICAMENTE
+        // =========================
+        let years = new Set();
 
-                "<'row mb-3'<'col-md-6'l><'col-md-6'f>>" +
+        table.column(1).data().each(function(value) {
+            let year = value.split('/')[2];
+            years.add(year);
+        });
 
-                "<'row'<'col-12'tr>>" +
+        years.forEach(y => {
+            $('#filterYear').append(`<option value="${y}">${y}</option>`);
+        });
 
-                "<'row mt-3'<'col-md-5'i><'col-md-7'p>>"
+        // =========================
+        // 🔹 FILTROS CUSTOM
+        // =========================
+        $.fn.dataTable.ext.search.push(function(settings, data) {
 
+            let date = data[1]; // dd/mm/yyyy
+            let market = data[3].toLowerCase();
+            let side = data[5];
+
+            let year = date.split('/')[2];
+            let month = date.split('/')[1];
+
+            let fYear = $('#filterYear').val();
+            let fMonth = $('#filterMonth').val();
+            let fSide = $('#filterSide').val();
+            let fMarket = $('#filterMarket').val();
+
+            if (fYear && year !== fYear) return false;
+            if (fMonth && month !== fMonth) return false;
+            if (fSide && side !== fSide) return false;
+            if (fMarket && market !== fMarket) return false;
+
+            return true;
+        });
+
+        // =========================
+        // 🔹 EVENTOS
+        // =========================
+        $('#filterYear, #filterMonth, #filterSide, #filterMarket').on('change', function() {
+            table.draw();
         });
 
     });

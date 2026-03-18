@@ -54,6 +54,7 @@ class TaxController extends Controller
         ]);
     }
 
+
     public function calculate()
     {
         TaxEngine::calculateYear(1, date('Y'));
@@ -76,15 +77,23 @@ class TaxController extends Controller
         ]);
     }
 
-    public function reportIr($year)
+    public function reportIr(Request $request, $year = null)
     {
         $userId = Auth::id() ?? 1;
+
+        // 🔥 prioridade: GET → rota → atual
+        $year = $request->get('year') ?? $year ?? date('Y');
+
+        // 🔥 lista de anos (2024 até atual)
+        $currentYear = date('Y');
+        $years = range(2024, $currentYear);
 
         $data = \App\Services\Trading\AnnualTaxService::calculate($userId, $year);
 
         return view('pages.tax_report_ir', [
             'months' => $data['months'],
-            'year' => $year
+            'year' => $year,
+            'years' => $years
         ]);
     }
 }

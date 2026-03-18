@@ -8,6 +8,25 @@
         📊 Relatório IR (Modelo Receita) - {{ $year }}
     </h3>
 
+    <form method="GET" action="{{ url('/tax/report-ir') }}" class="mb-4 d-flex gap-2 align-items-center">
+
+        <label class="fw-bold mb-0">Ano:</label>
+
+        <select name="year"
+            class="form-select"
+            style="max-width:150px"
+            onchange="this.form.submit()">
+
+            @foreach($years as $y)
+            <option value="{{ $y }}" {{ (int)$y === (int)$year ? 'selected' : '' }}>
+                {{ $y }}
+            </option>
+            @endforeach
+
+        </select>
+
+    </form>
+
     @foreach($months as $m)
 
     <div class="card mb-4 shadow-sm">
