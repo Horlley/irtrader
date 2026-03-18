@@ -9,15 +9,15 @@ class PdfReader
 
     public static function read($path)
     {
-
         $parser = new Parser();
 
-        $pdf = $parser->parseFile(storage_path('app/'.$path));
+        // 🔥 AGORA RECEBE CAMINHO COMPLETO (public_path)
+        if (!file_exists($path)) {
+            throw new \Exception("Arquivo não encontrado: " . $path);
+        }
 
-        $text = $pdf->getText();
+        $pdf = $parser->parseFile($path);
 
-        return $text;
-
+        return $pdf->getText();
     }
-
 }

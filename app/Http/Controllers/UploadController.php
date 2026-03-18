@@ -13,6 +13,7 @@ use App\Models\Import;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\File;
 
 class UploadController extends Controller
 {
@@ -24,51 +25,62 @@ class UploadController extends Controller
 
     public function upload(Request $request)
     {
-
         $request->validate([
             'file' => 'required|mimes:pdf'
         ]);
 
+        // =========================
+        // 🔥 GARANTE PASTA
+        // =========================
+        $uploadPath = public_path('uploads');
+
+        if (!File::exists($uploadPath)) {
+            File::makeDirectory($uploadPath, 0755, true);
+        }
+
+        // =========================
+        // 🔥 SALVA ARQUIVO
+        // =========================
         $file = $request->file('file');
-        $path = $file->store('pdfs');
 
-        // 🔥 lê texto do PDF
-        $text = PdfReader::read($path);
+        $filename = uniqid() . '_' . $file->getClientOriginalName();
+        $file->move($uploadPath, $filename);
 
-        // 🔥 normaliza texto
+        $path = 'uploads/' . $filename;
+        $fullPath = public_path($path);
+
+        // =========================
+        // 🔥 LÊ PDF
+        // =========================
+        $text = PdfReader::read($fullPath);
+
         $text = preg_replace("/\r\n|\r/", "\n", $text);
         $text = preg_replace("/\t/", " ", $text);
 
-        // 🔥 detecta corretora
         $broker = BrokerDetector::detect($text);
 
         if ($broker !== 'xp') {
-            return redirect()->back()->with('error', 'Corretora não suportada');
+            return $this->response($request, false, 'Corretora não suportada');
         }
 
-        // 🔥 extrai número da nota
         $noteNumber = XPParser::extractNoteNumber($text);
 
         if (!$noteNumber) {
-            return redirect()->back()->with('error', 'Não foi possível identificar o número da nota');
+            return $this->response($request, false, 'Não foi possível identificar o número da nota');
         }
 
-        // 🔥 evita duplicidade
         if (Import::where('note_number', $noteNumber)->exists()) {
-            return redirect()->back()->with('error', 'Esta nota já foi importada');
+            return $this->response($request, false, 'Esta nota já foi importada');
         }
 
-        // 🔥 extrai trades
         $trades = XPParser::parse($text);
 
         if (!$trades || count($trades) === 0) {
-            return redirect()->back()->with('error', 'Nenhuma operação encontrada na nota');
+            return $this->response($request, false, 'Nenhuma operação encontrada na nota');
         }
 
-        // 🔥 extrai resumo
         $summary = XPParser::extractSummary($text);
 
-        // 🔥 DATA DO PREGÃO
         $noteDate = XPParser::extractTradeDate($text);
 
         if ($noteDate) {
@@ -83,9 +95,6 @@ class UploadController extends Controller
 
         try {
 
-            // =========================
-            // 🔥 SALVA IMPORT (AGORA CORRETO)
-            // =========================
             $import = Import::create([
                 'user_id' => Auth::id() ?? 1,
                 'note_number' => $noteNumber,
@@ -104,15 +113,10 @@ class UploadController extends Controller
                 'account_normal_total' => $summary['account_normal_total'] ?? 0,
                 'net_total' => $summary['net_total'] ?? 0,
 
-                // 🔥 ESSENCIAL PRA FUNCIONAR O RELATÓRIO
                 'trades_json' => json_encode($trades),
-
                 'file_name' => $path
             ]);
 
-            // =========================
-            // 🔥 SALVA TRADES (NORMALIZADO)
-            // =========================
             foreach ($trades as $trade) {
 
                 $sideRaw = strtoupper(trim($trade['side'] ?? ''));
@@ -125,9 +129,7 @@ class UploadController extends Controller
                     $side = 'sell';
                 }
 
-                if (!$side) {
-                    continue;
-                }
+                if (!$side) continue;
 
                 Trade::create([
                     'import_id' => $import->id,
@@ -146,15 +148,65 @@ class UploadController extends Controller
 
             DB::commit();
 
+            return $this->response($request, true, 'Nota importada com sucesso');
+
         } catch (\Exception $e) {
 
             DB::rollBack();
 
-            return redirect()->back()->with('error', 'Erro ao importar: ' . $e->getMessage());
+            return $this->response($request, false, 'Erro ao importar: ' . $e->getMessage());
+        }
+    }
+
+    // =========================
+    // 🔥 DELETE PROFISSIONAL (CORRIGIDO)
+    // =========================
+    public function destroy($id)
+    {
+        $import = Import::findOrFail($id);
+
+        DB::beginTransaction();
+
+        try {
+
+            // 🔥 caminho completo
+            $fullPath = public_path($import->file_name);
+
+            // 🔥 remove arquivo com segurança
+            if ($import->file_name && File::exists($fullPath)) {
+                File::delete($fullPath);
+            }
+
+            // 🔥 remove trades
+            Trade::where('import_id', $import->id)->delete();
+
+            // 🔥 remove import
+            $import->delete();
+
+            DB::commit();
+
+            return redirect()->back()->with('success', 'Importação excluída com sucesso');
+
+        } catch (\Exception $e) {
+
+            DB::rollBack();
+
+            return redirect()->back()->with('error', 'Erro ao excluir: ' . $e->getMessage());
+        }
+    }
+
+    // =========================
+    // 🔥 RESPONSE PADRÃO
+    // =========================
+    private function response($request, $success, $message)
+    {
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => $success,
+                'message' => $message
+            ]);
         }
 
-        return redirect()
-            ->route('imports.index')
-            ->with('success', 'Nota importada com sucesso');
+        return redirect()->back()->with($success ? 'success' : 'error', $message);
     }
 }

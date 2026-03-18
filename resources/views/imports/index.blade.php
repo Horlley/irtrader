@@ -43,10 +43,7 @@
             </div>
 
         </div>
-
-
         <!-- LISTA DE NOTAS -->
-
         <div class="col-md-8">
 
             <div class="card shadow-sm">
@@ -150,7 +147,7 @@
                                         Ver
                                     </button>
 
-                                    <form action="/imports/{{ $import->id }}"
+                                    <form action="{{ route('imports.destroy', $import->id) }}"
                                         method="POST"
                                         class="form-delete"
                                         style="display:inline">
