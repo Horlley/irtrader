@@ -6,52 +6,12 @@ use Illuminate\Support\Facades\DB;
 
 class MarketClassifier
 {
-    public static function classifyFromTrades($trades)
-    {
-        $markets = [
-            'dolar' => 0,
-            'indice' => 0,
-            'outros' => 0,
-        ];
-
-        if (empty($trades) || !is_array($trades)) {
-            return $markets;
-        }
-
-        foreach ($trades as $trade) {
-
-            if (!is_array($trade)) {
-                continue;
-            }
-
-            $assetRaw = $trade['asset'] ?? '';
-            $asset = strtoupper(trim((string) $assetRaw));
-            $asset = preg_replace('/[^A-Z0-9]/', '', $asset);
-
-            $result = isset($trade['result']) ? (float) $trade['result'] : 0;
-
-            if (preg_match('/WDO|DOL/i', $asset)) {
-
-                $markets['dolar'] += $result;
-
-            } elseif (preg_match('/WIN|IND/i', $asset)) {
-
-                $markets['indice'] += $result;
-
-            } else {
-
-                $markets['outros'] += $result;
-            }
-        }
-
-        return $markets;
-    }
-
     public static function classifyFromItem($item)
     {
-        // 🔥 busca trades reais do import
+        // 🔥 busca trades do import
         $trades = DB::table('trades')
             ->where('import_id', $item->id)
+            ->orderBy('id')
             ->get();
 
         if ($trades->isEmpty()) {
@@ -62,59 +22,89 @@ class MarketClassifier
             ];
         }
 
-        $markets = [
-            'dolar' => 0,
-            'indice' => 0,
-            'outros' => 0,
-        ];
-
-        $count = [
-            'dolar' => 0,
-            'indice' => 0,
-            'outros' => 0,
-        ];
+        // 🔥 agrupa por ativo
+        $grouped = [];
 
         foreach ($trades as $trade) {
+            $asset = strtoupper(trim($trade->asset));
+            $grouped[$asset][] = $trade;
+        }
 
-            $market = strtolower(trim((string) ($trade->market ?? '')));
-            $asset = strtoupper(trim((string) ($trade->asset ?? '')));
+        $result = [
+            'dolar' => 0,
+            'indice' => 0,
+            'outros' => 0,
+        ];
 
-            if (
-                str_contains($market, 'dol') ||
-                str_contains($asset, 'WDO')
-            ) {
-                $count['dolar']++;
+        foreach ($grouped as $asset => $assetTrades) {
 
-            } elseif (
-                str_contains($market, 'ind') ||
-                str_contains($asset, 'WIN')
-            ) {
-                $count['indice']++;
+            $fifo = [];
 
-            } else {
-                $count['outros']++;
+            foreach ($assetTrades as $trade) {
+
+                $side = strtolower($trade->side);
+                $price = (float) $trade->price;
+                $qty = (int) $trade->quantity;
+
+                if ($side === 'buy') {
+
+                    $fifo[] = [
+                        'price' => $price,
+                        'qty' => $qty,
+                    ];
+                } elseif ($side === 'sell') {
+
+                    $sellQty = $qty;
+
+                    while ($sellQty > 0 && !empty($fifo)) {
+
+                        $buy = &$fifo[0];
+
+                        $matchQty = min($buy['qty'], $sellQty);
+
+                        // 🔥 ignora se não tem match real
+                        if ($matchQty <= 0) {
+                            break;
+                        }
+
+                        $points = $price - $buy['price'];
+
+                        $mult = self::getMultiplier($asset);
+
+                        $profit = $points * $matchQty * $mult;
+
+                        // 🔥 classifica corretamente
+                        if (str_contains($asset, 'WDO')) {
+
+                            $result['dolar'] += $profit;
+                        } elseif (str_contains($asset, 'WIN')) {
+
+                            $result['indice'] += $profit;
+                        }
+
+                        // 🔥 REMOVE OUTROS (CRÍTICO)
+                        // não usa mais 'outros' aqui
+
+                        $buy['qty'] -= $matchQty;
+                        $sellQty -= $matchQty;
+
+                        if ($buy['qty'] <= 0) {
+                            array_shift($fifo);
+                        }
+                    }
+                }
             }
         }
 
-        $totalTrades = array_sum($count);
+        return $result;
+    }
 
-        if ($totalTrades == 0) {
-            return [
-                'dolar' => 0,
-                'indice' => 0,
-                'outros' => (float) $item->net_total,
-            ];
-        }
+    private static function getMultiplier($asset)
+    {
+        if (str_contains($asset, 'WDO')) return 10;
+        if (str_contains($asset, 'WIN')) return 0.2;
 
-        // 🔥 distribuição proporcional
-        foreach ($count as $key => $qty) {
-
-            if ($qty > 0) {
-                $markets[$key] = ($qty / $totalTrades) * $item->net_total;
-            }
-        }
-
-        return $markets;
+        return 1;
     }
 
     public static function normalizeTotals(array $markets, $expectedTotal)

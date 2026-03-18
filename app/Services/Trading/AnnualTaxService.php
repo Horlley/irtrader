@@ -4,7 +4,8 @@ namespace App\Services\Trading;
 
 use App\Models\Import;
 use App\Models\TaxConfig;
-use App\Services\Trading\MarketClassifier;
+use App\Services\Trading\TradeCalculatorService;
+use Illuminate\Support\Facades\DB;
 
 class AnnualTaxService
 {
@@ -36,11 +37,11 @@ class AnnualTaxService
             $monthKey = $year . '-' . str_pad($m, 2, '0', STR_PAD_LEFT);
             $items = $imports->get($monthKey, collect());
 
-            $profit = $items->sum('net_total');
+            $profit = $items->sum('net_total'); // 🔥 já líquido
             $irrfMonth = $items->sum('irrf_daytrade_proj');
 
             // =========================
-            // 🔹 MARKET BREAKDOWN (CENTRALIZADO)
+            // 🔹 MARKET BREAKDOWN (BRUTO via FIFO)
             // =========================
             $markets = [
                 'dolar' => 0,
@@ -50,18 +51,40 @@ class AnnualTaxService
 
             foreach ($items as $item) {
 
-                $itemMarkets = MarketClassifier::classifyFromItem($item);
+                $trades = DB::table('trades')
+                    ->where('import_id', $item->id)
+                    ->orderBy('trade_date')
+                    ->get();
+
+                if ($trades->isEmpty()) {
+                    continue;
+                }
+
+                $itemMarkets = TradeCalculatorService::calculateByImport($trades);
 
                 $markets['dolar'] += $itemMarkets['dolar'];
                 $markets['indice'] += $itemMarkets['indice'];
                 $markets['outros'] += $itemMarkets['outros'];
             }
 
-            logger()->info('MARKETS BEFORE NORMALIZE', $markets);
+            // =========================
+            // 🔥 DISTRIBUIÇÃO LÍQUIDA (CORREÇÃO PRINCIPAL)
+            // =========================
+            $totalBruto = $markets['dolar'] + $markets['indice'];
 
-            // 🔥 GARANTE CONSISTÊNCIA COM RESULTADO REAL
-            $markets = MarketClassifier::normalizeTotals($markets, $profit);
-            logger()->info('PROFIT MONTH', ['profit' => $profit]);
+            if ($totalBruto != 0) {
+
+                $ratioDolar = $markets['dolar'] / $totalBruto;
+                $ratioIndice = $markets['indice'] / $totalBruto;
+
+                $markets['dolar'] = $profit * $ratioDolar;
+                $markets['indice'] = $profit * $ratioIndice;
+                $markets['outros'] = 0;
+
+            } else {
+                // fallback seguro
+                $markets['outros'] = $profit;
+            }
 
             // =========================
             // 🔹 BASE DE CÁLCULO
