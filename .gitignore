@@ -6,6 +6,10 @@
 .env
 .env.backup
 .phpunit.result.cache
+*.pdf
+/public/uploads/
+/storage/app/uploads/
+/storage/app/public/uploads/
 docker-compose.override.yml
 Homestead.json
 Homestead.yaml

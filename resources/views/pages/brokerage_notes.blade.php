@@ -96,6 +96,38 @@
         </a>
     </div>
 
+    <div class="brokerage-summary">
+        <div class="summary-card">
+            <span>Notas</span>
+            <strong>{{ $summary['notes_count'] ?? 0 }}</strong>
+        </div>
+
+        <div class="summary-card">
+            <span>Taxa registro</span>
+            <strong>{{ $money($summary['registration_fee'] ?? 0) }}</strong>
+        </div>
+
+        <div class="summary-card">
+            <span>Taxa BM&F</span>
+            <strong>{{ $money($summary['bmf_fees'] ?? 0) }}</strong>
+        </div>
+
+        <div class="summary-card">
+            <span>IR Day Trade</span>
+            <strong>{{ $money($summary['ir_day_trade'] ?? 0) }}</strong>
+        </div>
+
+        <div class="summary-card">
+            <span>Valor Liquido</span>
+            @php
+                $summaryNet = $summary['net_total'] ?? 0;
+            @endphp
+            <strong class="{{ $summaryNet < 0 ? 'text-danger' : ($summaryNet > 0 ? 'text-success' : '') }}">
+                {{ $money($summaryNet) }}
+            </strong>
+        </div>
+    </div>
+
     @if($notes->isEmpty())
         <div class="empty-state">
             Nenhuma nota encontrada para os filtros selecionados.
@@ -345,6 +377,39 @@
         color: #1f2937;
     }
 
+    .brokerage-summary {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(150px, 1fr));
+        gap: 14px;
+        margin-bottom: 24px;
+    }
+
+    .summary-card {
+        min-height: 86px;
+        padding: 16px;
+        border: 1px solid #bfdbfe;
+        border-radius: 6px;
+        background: #eff6ff;
+        box-shadow: 0 4px 10px rgba(15, 23, 42, 0.04);
+    }
+
+    .summary-card span {
+        display: block;
+        margin-bottom: 8px;
+        color: #64748b;
+        font-size: 13px;
+        font-weight: 700;
+    }
+
+    .summary-card strong {
+        display: block;
+        color: #111827;
+        font-size: 21px;
+        font-weight: 800;
+        line-height: 1.2;
+        word-break: break-word;
+    }
+
     .notes-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(260px, 260px));
@@ -576,6 +641,10 @@
         .notes-filter {
             grid-template-columns: repeat(3, minmax(160px, 1fr));
         }
+
+        .brokerage-summary {
+            grid-template-columns: repeat(3, minmax(150px, 1fr));
+        }
     }
 
     @media (max-width: 760px) {
@@ -600,6 +669,10 @@
         }
 
         .notes-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .brokerage-summary {
             grid-template-columns: 1fr;
         }
 

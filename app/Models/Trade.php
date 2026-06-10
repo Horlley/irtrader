@@ -11,6 +11,7 @@ class Trade extends Model
 
         'import_id',
         'user_id',
+        'note_number',
         'trade_date',
         'broker',
         'asset',
@@ -18,6 +19,7 @@ class Trade extends Model
         'side',
         'quantity',
         'price',
+        'result',
         'trade_type',
         'source_file'
 

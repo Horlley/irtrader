@@ -79,6 +79,18 @@ class TaxController extends Controller
             ->orderBy('trade_date')
             ->get();
 
+        $summary = [
+            'notes_count' => $notes->count(),
+            'registration_fee' => $notes->sum('bmf_registration_fee'),
+            'bmf_fees' => $notes->sum('bmf_fees'),
+            'ir_day_trade' => $notes->sum(function ($note) {
+                return $note->irrf_daytrade_proj ?? $note->irrf_daytrade ?? 0;
+            }),
+            'net_total' => $notes->sum(function ($note) {
+                return $note->net_total ?? $note->net_result ?? 0;
+            }),
+        ];
+
         $years = Import::where('user_id', $userId)
             ->selectRaw('YEAR(trade_date) as year')
             ->distinct()
@@ -115,6 +127,7 @@ class TaxController extends Controller
             'brokers' => $brokers,
             'assets' => $assets,
             'origins' => $origins,
+            'summary' => $summary,
         ]);
     }
 

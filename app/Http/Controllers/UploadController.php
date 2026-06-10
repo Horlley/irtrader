@@ -14,13 +14,42 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Schema;
 
 class UploadController extends Controller
 {
 
     public function index()
     {
-        return view('pages.imports');
+        $query = Import::withCount('trades');
+
+        if (request('year')) {
+            $query->whereYear('trade_date', request('year'));
+        }
+
+        if (request('month')) {
+            $query->whereMonth('trade_date', request('month'));
+        }
+
+        if (request('broker')) {
+            $query->where('broker', request('broker'));
+        }
+
+        $imports = $query
+            ->orderBy('trade_date', 'asc')
+            ->get();
+
+        $years = Import::selectRaw('YEAR(trade_date) as year')
+            ->distinct()
+            ->orderBy('year', 'desc')
+            ->pluck('year');
+
+        $brokers = Import::select('broker')
+            ->distinct()
+            ->orderBy('broker')
+            ->pluck('broker');
+
+        return view('pages.imports', compact('imports', 'years', 'brokers'));
     }
 
     public function upload(Request $request)
@@ -97,27 +126,30 @@ class UploadController extends Controller
 
         try {
 
-            $import = Import::create([
+            $import = Import::create($this->filterColumns('imports', [
                 'user_id' => Auth::id() ?? 1,
                 'note_number' => $noteNumber,
                 'broker' => $broker,
                 'trade_date' => $date,
 
+                'total_trades' => count($trades),
                 'gross_value' => $summary['gross_value'] ?? 0,
                 'operational_fee' => $summary['operational_fee'] ?? 0,
                 'bmf_registration_fee' => $summary['bmf_registration_fee'] ?? 0,
                 'bmf_fees' => $summary['bmf_fees'] ?? 0,
 
+                'irrf' => $summary['irrf_daytrade_proj'] ?? 0,
                 'irrf_daytrade_proj' => $summary['irrf_daytrade_proj'] ?? 0,
 
                 'total_costs' => $summary['total_costs'] ?? 0,
                 'daytrade_adjustment' => $summary['daytrade_adjustment'] ?? 0,
                 'account_normal_total' => $summary['account_normal_total'] ?? 0,
+                'net_result' => $summary['net_total'] ?? 0,
                 'net_total' => $summary['net_total'] ?? 0,
 
                 'trades_json' => json_encode($trades),
                 'file_name' => $path
-            ]);
+            ]));
 
             foreach ($trades as $trade) {
 
@@ -133,9 +165,10 @@ class UploadController extends Controller
 
                 if (!$side) continue;
 
-                Trade::create([
+                Trade::create($this->filterColumns('trades', [
                     'import_id' => $import->id,
                     'user_id' => Auth::id() ?? 1,
+                    'note_number' => $noteNumber,
                     'trade_date' => $date,
                     'broker' => $broker,
                     'asset' => $trade['asset'] ?? null,
@@ -143,9 +176,10 @@ class UploadController extends Controller
                     'side' => $side,
                     'quantity' => (int) ($trade['quantity'] ?? 0),
                     'price' => (float) ($trade['price'] ?? 0),
+                    'result' => (float) ($trade['result'] ?? 0),
                     'trade_type' => $trade['trade_type'] ?? 'daytrade',
                     'source_file' => $path
-                ]);
+                ]));
             }
 
             DB::commit();
@@ -229,5 +263,12 @@ class UploadController extends Controller
         }
 
         return 'outros';
+    }
+
+    private function filterColumns($table, array $data)
+    {
+        return array_filter($data, function ($key) use ($table) {
+            return Schema::hasColumn($table, $key);
+        }, ARRAY_FILTER_USE_KEY);
     }
 }

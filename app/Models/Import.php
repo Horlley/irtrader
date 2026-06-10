@@ -24,7 +24,6 @@ class Import extends Model
 
         'total_costs',
         'daytrade_adjustment',
-        'account_normal_total',
         'net_total',
 
         'trades_json',
