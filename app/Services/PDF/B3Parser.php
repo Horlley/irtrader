@@ -4,30 +4,19 @@ namespace App\Services\PDF;
 
 class B3Parser
 {
+    private const MONEY_REGEX = '-?\d+(?:\.\d{3})*,\d{2}';
+
     public static function parse($text)
     {
         $lines = explode("\n", $text);
         $trades = [];
 
         foreach ($lines as $line) {
-            $line = trim($line);
-            $line = preg_replace('/\s+/', ' ', $line);
+            $trade = self::parseTradeLine($line);
 
-            if (!preg_match('/^(C|V)([A-Z]{3,5})\s+([A-Z]\d{2})\s+@?(\d{2}\/\d{2}\/\d{4})\s+(\d+)\s+([0-9\.]+,\d{2})\s+(.+?)\s+(-?\d{1,3}(?:\.\d{3})*,\d{2})([CD])\s+([0-9\.,]+)/', $line, $matches)) {
-                continue;
+            if ($trade) {
+                $trades[] = $trade;
             }
-
-            $trades[] = [
-                'side' => $matches[1] === 'C' ? 'buy' : 'sell',
-                'asset' => $matches[2],
-                'contract' => $matches[3],
-                'date' => $matches[4],
-                'quantity' => (int) $matches[5],
-                'price' => self::money($matches[6]),
-                'trade_type' => stripos($matches[7], 'DAY TRADE') !== false ? 'daytrade' : 'normal',
-                'result' => self::money($matches[8], $matches[9]),
-                'operational_fee' => self::money($matches[10]),
-            ];
         }
 
         return $trades;
@@ -35,7 +24,9 @@ class B3Parser
 
     public static function extractNoteNumber($text)
     {
-        if (preg_match('/Nr\.\s*nota\s*([0-9\.]+)/i', $text, $matches)) {
+        $text = self::normalizeSearchText($text);
+
+        if (preg_match('/(?:NR\.?\s*NOTA|NUMERO\s+(?:DA\s+)?NOTA|NRO\.?\s*NOTA)\s*([0-9\.]+)/', $text, $matches)) {
             return str_replace('.', '', $matches[1]);
         }
 
@@ -59,49 +50,65 @@ class B3Parser
         $lines = explode("\n", $text);
 
         for ($i = 0; $i < count($lines); $i++) {
-            $line = trim($lines[$i]);
+            $line = self::normalizeSearchText($lines[$i]);
+            $values = self::summaryValueLine($lines, $i);
 
-            if (strpos($line, 'Valor dos negócios') !== false) {
-                $values = trim($lines[$i + 1] ?? '');
+            if (strpos($line, 'VALOR DOS NEG') !== false) {
+                $pairs = self::debitCreditValues($values);
 
-                if (preg_match('/([0-9\.,]+)\s*\|\s*([CD])/', $values, $m)) {
-                    $summary['gross_value'] = self::money($m[1], $m[2]);
+                if ($pairs) {
+                    $pair = end($pairs);
+                    $summary['gross_value'] = self::money($pair['value'], $pair['type']);
                 }
             }
 
-            if (strpos($line, 'IRRF Day Trade') !== false) {
-                $values = trim($lines[$i + 1] ?? '');
+            if (strpos($line, 'IRRF DAY TRADE') !== false) {
+                $amounts = self::moneyValues($values);
 
-                if (preg_match('/\|\s*([0-9\.,]+)/', $values, $m)) {
-                    $summary['irrf_daytrade_proj'] = self::money($m[1]);
+                if (isset($amounts[1])) {
+                    $summary['irrf_daytrade_proj'] = $amounts[1];
                 }
 
-                if (preg_match('/\s([0-9\.,]+)\s+([0-9\.,]+)\s*\|\s*D/', $values, $m)) {
-                    $summary['bmf_registration_fee'] = self::money($m[1]);
-                    $summary['bmf_fees'] = self::money($m[2]);
+                if (isset($amounts[2])) {
+                    $summary['operational_fee'] = $amounts[2];
                 }
-            }
 
-            if (strpos($line, 'Ajuste day trade') !== false) {
-                if (preg_match('/([0-9\.,]+)\s*\|\s*([CD])/', $line, $m)) {
-                    $summary['daytrade_adjustment'] = self::money($m[1], $m[2]);
+                if (isset($amounts[3])) {
+                    $summary['bmf_registration_fee'] = $amounts[3];
                 }
-            }
 
-            if (strpos($line, 'Total líquido da nota') !== false || strpos($line, 'Total liquido da nota') !== false) {
-                $values = trim($lines[$i + 1] ?? '');
-
-                if (preg_match_all('/([0-9\.,]+)\s*\|\s*([CD])/', $values, $matches, PREG_SET_ORDER)) {
-                    $last = end($matches);
-                    $summary['net_total'] = self::money($last[1], $last[2]);
+                if (isset($amounts[4])) {
+                    $summary['bmf_fees'] = $amounts[4];
                 }
             }
 
-            if (strpos($line, 'Total Conta Normal') !== false) {
-                $values = trim($lines[$i + 1] ?? '');
+            if (strpos($line, 'AJUSTE DAY TRADE') !== false || strpos($line, 'TOTAL DE CUSTOS OPERACIONAIS') !== false) {
+                $pairs = self::debitCreditValues($values);
 
-                if (preg_match('/([0-9\.,]+)\s*\|\s*([CD])/', $values, $m)) {
-                    $summary['account_normal_total'] = self::money($m[1], $m[2]);
+                if (count($pairs) >= 2) {
+                    $daytrade = $pairs[count($pairs) - 2];
+                    $costs = $pairs[count($pairs) - 1];
+
+                    $summary['daytrade_adjustment'] = self::money($daytrade['value'], $daytrade['type']);
+                    $summary['total_costs'] = abs(self::money($costs['value'], $costs['type']));
+                }
+            }
+
+            if (strpos($line, 'TOTAL L') !== false && strpos($line, 'DA NOTA') !== false) {
+                $pairs = self::debitCreditValues($values);
+
+                if ($pairs) {
+                    $last = end($pairs);
+                    $summary['net_total'] = self::money($last['value'], $last['type']);
+                }
+            }
+
+            if (strpos($line, 'TOTAL CONTA NORMAL') !== false) {
+                $pairs = self::debitCreditValues($values);
+
+                if ($pairs) {
+                    $first = reset($pairs);
+                    $summary['account_normal_total'] = self::money($first['value'], $first['type']);
                 }
             }
         }
@@ -111,15 +118,52 @@ class B3Parser
 
     public static function extractTradeDate($text)
     {
-        if (preg_match('/Data pregão\s*(\d{2}\/\d{2}\/\d{4})/i', $text, $matches)) {
+        $text = self::normalizeSearchText($text);
+
+        if (preg_match('/DATA\s+PREG\S*\s*(\d{2}\/\d{2}\/\d{4})/', $text, $matches)) {
             return $matches[1];
         }
 
-        if (preg_match('/Nr\.\s*nota[\s\S]{0,200}?(\d{2}\/\d{2}\/\d{4})/i', $text, $matches)) {
+        if (preg_match('/NR\.?\s*NOTA.{0,200}?(\d{2}\/\d{2}\/\d{4})/', $text, $matches)) {
             return $matches[1];
         }
 
         return null;
+    }
+
+    private static function parseTradeLine($line)
+    {
+        $line = self::normalizeLine($line);
+
+        if ($line === '') {
+            return null;
+        }
+
+        $pattern = '/^(C|V)\s*([A-Z]{3,6})\s+([A-Z]\d{2})\s+@?(\d{2}\/\d{2}\/\d{4})\s+(\d+)\s+('
+            . self::MONEY_REGEX
+            . ')\s+(.+?)\s+('
+            . self::MONEY_REGEX
+            . ')\s*([CD])(?:\s+('
+            . self::MONEY_REGEX
+            . '))?$/i';
+
+        if (!preg_match($pattern, $line, $matches)) {
+            return null;
+        }
+
+        $tradeType = str_replace(' ', '', self::normalizeSearchText($matches[7]));
+
+        return [
+            'side' => strtoupper($matches[1]) === 'C' ? 'buy' : 'sell',
+            'asset' => strtoupper($matches[2]),
+            'contract' => strtoupper($matches[3]),
+            'date' => $matches[4],
+            'quantity' => (int) $matches[5],
+            'price' => self::money($matches[6]),
+            'trade_type' => strpos($tradeType, 'DAYTRADE') !== false ? 'daytrade' : 'normal',
+            'result' => self::money($matches[8], strtoupper($matches[9])),
+            'operational_fee' => isset($matches[10]) ? self::money($matches[10]) : 0,
+        ];
     }
 
     private static function money($value, $type = 'C')
@@ -129,10 +173,69 @@ class B3Parser
 
         $number = (float) $value;
 
-        if ($type === 'D') {
+        if (strtoupper($type) === 'D') {
             $number *= -1;
         }
 
         return $number;
+    }
+
+    private static function normalizeLine($line)
+    {
+        return trim(preg_replace('/\s+/', ' ', $line));
+    }
+
+    private static function normalizeSearchText($text)
+    {
+        $converted = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $text);
+
+        if ($converted !== false) {
+            $text = $converted;
+        }
+
+        $text = strtoupper($text);
+
+        return self::normalizeLine($text);
+    }
+
+    private static function summaryValueLine(array $lines, $index)
+    {
+        $current = self::normalizeLine($lines[$index] ?? '');
+        $next = self::normalizeLine($lines[$index + 1] ?? '');
+
+        if (preg_match('/' . self::MONEY_REGEX . '/', $current)) {
+            return trim($current . ' ' . $next);
+        }
+
+        return $next;
+    }
+
+    private static function debitCreditValues($text)
+    {
+        $values = [];
+
+        if (!preg_match_all('/(' . self::MONEY_REGEX . ')\s*(?:\|\s*)?([CD])\b/i', $text, $matches, PREG_SET_ORDER)) {
+            return $values;
+        }
+
+        foreach ($matches as $match) {
+            $values[] = [
+                'value' => $match[1],
+                'type' => strtoupper($match[2]),
+            ];
+        }
+
+        return $values;
+    }
+
+    private static function moneyValues($text)
+    {
+        if (!preg_match_all('/' . self::MONEY_REGEX . '/', $text, $matches)) {
+            return [];
+        }
+
+        return array_map(function ($value) {
+            return self::money($value);
+        }, $matches[0]);
     }
 }

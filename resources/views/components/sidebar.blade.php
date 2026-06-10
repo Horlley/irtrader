@@ -74,7 +74,7 @@
                 <li>
                     <a href="{{ route('tax.brokerage-notes') }}"
                         class="{{ request()->is('tax/brokerage-notes*') ? 'active' : '' }}">
-                        Notas corretagem
+                        📈 Notas corretagem
                     </a>
                 </li>
 

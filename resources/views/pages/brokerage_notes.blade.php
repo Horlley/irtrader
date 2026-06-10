@@ -66,31 +66,7 @@
                     </option>
                 @endforeach
             </select>
-        </div>
-
-        <div class="filter-field">
-            <label>Ativo</label>
-            <select name="asset" class="form-select" onchange="this.form.submit()">
-                <option value="">Todas</option>
-                @foreach($assets as $asset)
-                    <option value="{{ $asset }}" {{ request('asset') === $asset ? 'selected' : '' }}>
-                        {{ $asset }}
-                    </option>
-                @endforeach
-            </select>
-        </div>
-
-        <div class="filter-field">
-            <label>Origem</label>
-            <select name="origin" class="form-select" onchange="this.form.submit()">
-                <option value="">Todas</option>
-                @foreach($origins as $origin)
-                    <option value="{{ $origin }}" {{ request('origin') === $origin ? 'selected' : '' }}>
-                        {{ ucfirst($origin) }}
-                    </option>
-                @endforeach
-            </select>
-        </div>
+        </div>        
 
         <div class="filter-field filter-period">
             <label>Periodo</label>

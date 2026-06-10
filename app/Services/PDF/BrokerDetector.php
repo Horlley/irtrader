@@ -4,33 +4,61 @@ namespace App\Services\PDF;
 
 class BrokerDetector
 {
+    private const BROKER_SIGNATURES = [
+        'xp' => [
+            'XP INVESTIMENTOS',
+            'XP CORRETORA',
+            'XP CCTVM',
+            'XP C C T V M',
+        ],
+        'clear' => [
+            'CLEAR CTVM',
+            'CLEAR CTVM S/A',
+            'CLEAR C T V M',
+            'CLEAR CORRETORA',
+            'CORRETORA CLEAR',
+        ],
+        'rico' => [
+            'RICO INVESTIMENTOS',
+            'RICO CTVM',
+            'RICO C T V M',
+        ],
+        'btg' => [
+            'BTG PACTUAL',
+        ],
+        'inter' => [
+            'INTER DTVM',
+            'INTER D T V M',
+            'BANCO INTER',
+        ],
+    ];
 
     public static function detect($text)
     {
+        $text = self::normalize($text);
 
-        $text = strtoupper($text);
-
-        if (strpos($text, 'XP INVESTIMENTOS') !== false) {
-            return 'xp';
-        }
-
-        if (strpos($text, 'CLEAR CTVM') !== false || strpos($text, 'CLEAR CORRETORA') !== false || strpos($text, 'CORRETORA.CLEAR') !== false) {
-            return 'clear';
-        }
-
-        if (strpos($text, 'RICO INVESTIMENTOS') !== false) {
-            return 'rico';
-        }
-
-        if (strpos($text, 'BTG PACTUAL') !== false) {
-            return 'btg';
-        }
-
-        if (strpos($text, 'INTER DTVM') !== false) {
-            return 'inter';
+        foreach (self::BROKER_SIGNATURES as $broker => $signatures) {
+            foreach ($signatures as $signature) {
+                if (strpos($text, $signature) !== false) {
+                    return $broker;
+                }
+            }
         }
 
         return 'desconhecida';
     }
 
+    private static function normalize($text)
+    {
+        $converted = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $text);
+
+        if ($converted !== false) {
+            $text = $converted;
+        }
+
+        $text = strtoupper($text);
+        $text = preg_replace('/[^A-Z0-9]+/', ' ', $text);
+
+        return trim(preg_replace('/\s+/', ' ', $text));
+    }
 }

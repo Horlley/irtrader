@@ -4,17 +4,20 @@ namespace App\Services\PDF;
 
 class BrokerParserFactory
 {
+    private const PARSERS = [
+        'xp' => B3Parser::class,
+        'clear' => B3Parser::class,
+    ];
+
     public static function make($broker)
     {
-        $b3Brokers = [
-            'xp',
-            'clear',
-        ];
+        $broker = strtolower(trim((string) $broker));
 
-        if (in_array($broker, $b3Brokers, true)) {
-            return B3Parser::class;
-        }
+        return self::PARSERS[$broker] ?? null;
+    }
 
-        return null;
+    public static function supportedBrokers()
+    {
+        return array_keys(self::PARSERS);
     }
 }
