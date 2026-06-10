@@ -236,6 +236,16 @@ class TaxController extends Controller
         // 🔥 total agora é do mês (CORREÇÃO PRINCIPAL)
         $total = $monthData['result'] ?? 0;
 
+        if ($request->expectsJson()) {
+            return response()->json([
+                'months' => $result['months'],
+                'monthData' => $monthData,
+                'total' => round($total, 2),
+                'year' => (int) $year,
+                'month' => (int) $month,
+            ]);
+        }
+
         return view('pages.tax_report', [
             'months' => $result['months'], // usado na view
             'total' => $total,             // 🔥 corrigido
