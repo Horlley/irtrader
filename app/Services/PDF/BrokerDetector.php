@@ -10,23 +10,23 @@ class BrokerDetector
 
         $text = strtoupper($text);
 
-        if (str_contains($text, 'XP INVESTIMENTOS')) {
+        if (strpos($text, 'XP INVESTIMENTOS') !== false) {
             return 'xp';
         }
 
-        if (str_contains($text, 'CLEAR CORRETORA')) {
+        if (strpos($text, 'CLEAR CTVM') !== false || strpos($text, 'CLEAR CORRETORA') !== false || strpos($text, 'CORRETORA.CLEAR') !== false) {
             return 'clear';
         }
 
-        if (str_contains($text, 'RICO INVESTIMENTOS')) {
+        if (strpos($text, 'RICO INVESTIMENTOS') !== false) {
             return 'rico';
         }
 
-        if (str_contains($text, 'BTG PACTUAL')) {
+        if (strpos($text, 'BTG PACTUAL') !== false) {
             return 'btg';
         }
 
-        if (str_contains($text, 'INTER DTVM')) {
+        if (strpos($text, 'INTER DTVM') !== false) {
             return 'inter';
         }
 

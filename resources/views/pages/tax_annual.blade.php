@@ -3,39 +3,56 @@
 @section('content')
 
 <h2>Relatório Anual IRPF {{ $year }}</h2>
-<div class="row mb-4">
+<div class="row g-2 mb-4">
 
-    <div class="col-md-3">
-        <div class="card p-3 text-center">
-            <div><strong>Resultado no Ano</strong></div>
-            <div style="color: {{ $summary['profit'] >= 0 ? 'green' : 'red' }}; font-size:18px;">
+    <!-- RESULTADO ANO -->
+    <div class="col">
+        <div class="card shadow-sm border-0 text-center p-2">
+            <small class="text-muted">Resultado</small>
+            <div class="fw-bold"
+                style="color: {{ $summary['profit'] >= 0 ? '#16a34a' : '#dc2626' }};">
                 R$ {{ number_format($summary['profit'],2,',','.') }}
             </div>
         </div>
     </div>
 
-    <div class="col-md-3">
-        <div class="card p-3 text-center">
-            <div><strong>Imposto Devido</strong></div>
-            <div style="font-size:18px;">
+    <!-- MÉDIA -->
+    <div class="col">
+        @php $mediaMensal = ($summary['profit'] ?? 0) / 12; @endphp
+        <div class="card shadow-sm border-0 text-center p-2">
+            <small class="text-muted">Média</small>
+            <div class="fw-bold"
+                style="color: {{ $mediaMensal >= 0 ? '#2563eb' : '#dc2626' }};">
+                R$ {{ number_format($mediaMensal,2,',','.') }}
+            </div>
+        </div>
+    </div>
+
+    <!-- IMPOSTO -->
+    <div class="col">
+        <div class="card shadow-sm border-0 text-center p-2">
+            <small class="text-muted">Imposto</small>
+            <div class="fw-bold">
                 R$ {{ number_format($summary['tax'],2,',','.') }}
             </div>
         </div>
     </div>
 
-    <div class="col-md-3">
-        <div class="card p-3 text-center">
-            <div><strong>💰 Crédito IRRF</strong></div>
-            <div style="color:#9333ea; font-size:18px;">
+    <!-- IRRF -->
+    <div class="col">
+        <div class="card shadow-sm border-0 text-center p-2">
+            <small class="text-muted">IRRF</small>
+            <div class="fw-bold text-purple">
                 R$ {{ number_format(end($months)['irrf_balance'] ?? 0,2,',','.') }}
             </div>
         </div>
     </div>
 
-    <div class="col-md-3">
-        <div class="card p-3 text-center">
-            <div><strong>📉 Prejuízo Acumulado</strong></div>
-            <div style="color:#dc2626; font-size:18px;">
+    <!-- PREJUÍZO -->
+    <div class="col">
+        <div class="card shadow-sm border-0 text-center p-2">
+            <small class="text-muted">Prejuízo</small>
+            <div class="fw-bold text-danger">
                 R$ {{ number_format(end($months)['loss_carry'] ?? 0,2,',','.') }}
             </div>
         </div>

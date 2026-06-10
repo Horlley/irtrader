@@ -52,6 +52,9 @@ Route::get('/tax/annual/{year}', [TaxController::class, 'annual'])->name('tax.an
 
 Route::get('/darfs', [TaxController::class, 'darfs'])->name('darfs.index');
 Route::get('/tax/report', [TaxController::class, 'report'])->name('tax.report');
+Route::get('/tax/brokerage-notes', [TaxController::class, 'brokerageNotes'])->name('tax.brokerage-notes');
+Route::get('/tax/brokerage-notes/{import}/operations', [TaxController::class, 'brokerageNoteOperations'])->name('tax.brokerage-notes.operations');
+Route::patch('/tax/brokerage-notes/{import}', [TaxController::class, 'updateBrokerageNote'])->name('tax.brokerage-notes.update');
 
 Route::delete('/imports/{id}', [UploadController::class, 'destroy'])->name('imports.destroy');
 

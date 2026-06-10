@@ -5,21 +5,14 @@
 <div class="container-fluid">
 
     <div class="row">
-
         <!-- UPLOAD DA NOTA -->
-
         <div class="col-md-4">
-
             <div class="card shadow-sm">
-
                 <div class="card-body">
 
                     <h5 class="mb-3">
                         📂 Importar Nota de Corretagem
                     </h5>
-
-
-
                     <form action="{{ route('imports.upload') }}" method="POST" enctype="multipart/form-data">
 
                         @csrf
@@ -56,36 +49,50 @@
                         📑 Notas Importadas
                     </h5>
 
-                    <div class="row mb-3">
+                    <form method="GET" id="filterForm">
+                        <div class="row mb-3">
 
-                        <div class="col-md-2">
-                            <select id="filterYear" class="form-select">
-                                <option value="">Ano</option>
-                            </select>
-                        </div>
-
-                        <div class="col-md-2">
-                            <select id="filterMonth" class="form-select">
-                                <option value="">Mês</option>
-                                @for($m=1;$m<=12;$m++)
-                                    <option value="{{ str_pad($m,2,'0',STR_PAD_LEFT) }}">
-                                    {{ str_pad($m,2,'0',STR_PAD_LEFT) }}
+                            <div class="col-md-2">
+                                <select name="year" class="form-select" onchange="this.form.submit()">
+                                    <option value="">Ano</option>
+                                    @foreach($years as $y)
+                                    <option value="{{ $y }}" {{ request('year') == $y ? 'selected' : '' }}>
+                                        {{ $y }}
                                     </option>
-                                    @endfor
-                            </select>
-                        </div>
+                                    @endforeach
+                                </select>
+                            </div>
 
-                        <div class="col-md-3">
-                            <select id="filterBroker" class="form-select">
-                                <option value="">Corretora</option>
-                            </select>
-                        </div>
+                            <div class="col-md-2">
+                                <select name="month" class="form-select" onchange="this.form.submit()">
+                                    <option value="">Mês</option>
+                                    @for($m=1;$m<=12;$m++)
+                                        <option value="{{ str_pad($m,2,'0',STR_PAD_LEFT) }}"
+                                        {{ request('month') == str_pad($m,2,'0',STR_PAD_LEFT) ? 'selected' : '' }}>
+                                        {{ str_pad($m,2,'0',STR_PAD_LEFT) }}
+                                        </option>
+                                        @endfor
+                                </select>
+                            </div>
 
-                        <div class="col-md-3">
-                            <input type="text" id="filterNote" class="form-control" placeholder="Número da nota">
-                        </div>
+                            <div class="col-md-3">
+                                <select name="broker" class="form-select" onchange="this.form.submit()">
+                                    <option value="">Corretora</option>
+                                    @foreach($brokers as $b)
+                                    <option value="{{ $b }}" {{ request('broker') == $b ? 'selected' : '' }}>
+                                        {{ $b }}
+                                    </option>
+                                    @endforeach
+                                </select>
+                            </div>
 
-                    </div>
+                            <div class="col-md-3">
+                                <!-- 🔥 continua frontend -->
+                                <input type="text" id="filterNote" class="form-control" placeholder="Número da nota">
+                            </div>
+
+                        </div>
+                    </form>
 
                     <div class="row mb-4">
 
@@ -377,44 +384,43 @@
             let months = {};
             let tradesCount = 0;
 
-            table.rows({ filter: 'applied' }).every(function () {
+            table.rows({
+                search: 'applied'
+            }).every(function() {
 
-    let node = this.node();
+                let node = this.node();
 
-    // 🔥 RESULTADO (DOM REAL - respeita filtro)
-    let raw = $(node).find('td').eq(11).text();
+                let raw = $(node).find('td').eq(11).text();
 
-    let value = parseFloat(
-        raw
-            .replace('R$', '')
-            .replace(/\./g, '')
-            .replace(',', '.')
-            .replace('+', '')
-            .trim()
-    );
+                let value = parseFloat(
+                    raw
+                    .replace('R$', '')
+                    .replace(/\./g, '')
+                    .replace(',', '.')
+                    .replace('+', '')
+                    .trim()
+                );
 
-    if (isNaN(value)) value = 0;
+                if (isNaN(value)) value = 0;
 
-    // 🔥 SOMAS
-    total += value;
-    if (value > 0) lucro += value;
-    if (value < 0) prejuizo += value;
+                total += value;
+                if (value > 0) lucro += value;
+                if (value < 0) prejuizo += value;
 
-    // 🔥 TRADES (DOM)
-    let trades = parseInt($(node).find('td').eq(4).text()) || 0;
-    tradesCount += trades;
+                let trades = parseInt($(node).find('td').eq(4).text()) || 0;
+                tradesCount += trades;
 
-    // 🔥 DATA (DOM)
-    let date = $(node).find('td').eq(1).data('order');
+                let dateText = $(node).find('td').eq(1).text().trim();
 
-    if (!date) return true; // continua o loop
+                let parts = dateText.split('/');
+                if (parts.length !== 3) return true;
 
-    let month = date.substring(0, 7);
+                let month = parts[2] + '-' + parts[1];
 
-    if (!months[month]) months[month] = 0;
-    months[month] += value;
+                if (!months[month]) months[month] = 0;
+                months[month] += value;
 
-});
+            });
 
             // =========================
             // 🔹 KPIs
@@ -440,8 +446,14 @@
 
             $('#totalTrades').text(tradesCount);
 
-            let labels = Object.keys(months).sort();
-            let dataChart = labels.map(m => months[m]);
+            let labels = Object.keys(months).sort((a, b) => new Date(a) - new Date(b));
+            let dataChart = [];
+            let acumulado = 0;
+
+            labels.forEach(m => {
+                acumulado += months[m];
+                dataChart.push(acumulado);
+            });
 
             if (labels.length === 0) {
                 labels = ['Sem dados'];
@@ -463,18 +475,35 @@
             let ctx = canvas.getContext('2d');
 
             window.chart = new Chart(ctx, {
-                type: 'bar',
+                type: 'line',
                 data: {
                     labels: labels, // 🔥 usa seus dados reais
                     datasets: [{
-                        label: 'Resultado',
-                        data: dataChart, // 🔥 usa seus dados reais
-                        backgroundColor: '#2563eb'
+                        label: 'Resultado Acumulado',
+                        data: dataChart,
+                        borderColor: '#2563eb',
+                        backgroundColor: 'rgba(37, 99, 235, 0.15)',
+                        tension: 0.4,
+                        fill: true
                     }]
                 },
                 options: {
                     responsive: true,
-                    maintainAspectRatio: false
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true
+                        }
+                    },
+                    scales: {
+                        y: {
+                            ticks: {
+                                callback: function(value) {
+                                    return 'R$ ' + value.toLocaleString('pt-BR');
+                                }
+                            }
+                        }
+                    }
                 }
             });
 

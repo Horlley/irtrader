@@ -18,10 +18,6 @@ class TradeController extends Controller
         return view('trades.index', compact('trades'));
     }
 
-
-    /**
-     * Formulário de edição
-     */
     public function edit($id)
     {
         $trade = Trade::findOrFail($id);
@@ -29,10 +25,6 @@ class TradeController extends Controller
         return view('trades.edit', compact('trade'));
     }
 
-
-    /**
-     * Atualizar operação
-     */
     public function update(Request $request, $id)
     {
         $trade = Trade::findOrFail($id);
@@ -67,5 +59,4 @@ class TradeController extends Controller
             ->route('trades.index')
             ->with('success', 'Operação removida.');
     }
-
 }

@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Services\PDF\PdfReader;
 use App\Services\PDF\BrokerDetector;
-use App\Services\PDF\XPParser;
+use App\Services\PDF\BrokerParserFactory;
 
 use App\Models\Trade;
 use App\Models\Import;
@@ -59,29 +59,31 @@ class UploadController extends Controller
 
         $broker = BrokerDetector::detect($text);
 
-        if ($broker !== 'xp') {
+        $parser = BrokerParserFactory::make($broker);
+
+        if (!$parser) {
             return $this->response($request, false, 'Corretora não suportada');
         }
 
-        $noteNumber = XPParser::extractNoteNumber($text);
+        $noteNumber = $parser::extractNoteNumber($text);
 
         if (!$noteNumber) {
             return $this->response($request, false, 'Não foi possível identificar o número da nota');
         }
 
-        if (Import::where('note_number', $noteNumber)->exists()) {
+        if (Import::where('broker', $broker)->where('note_number', $noteNumber)->exists()) {
             return $this->response($request, false, 'Esta nota já foi importada');
         }
 
-        $trades = XPParser::parse($text);
+        $trades = $parser::parse($text);
 
         if (!$trades || count($trades) === 0) {
             return $this->response($request, false, 'Nenhuma operação encontrada na nota');
         }
 
-        $summary = XPParser::extractSummary($text);
+        $summary = $parser::extractSummary($text);
 
-        $noteDate = XPParser::extractTradeDate($text);
+        $noteDate = $parser::extractTradeDate($text);
 
         if ($noteDate) {
             $date = Carbon::createFromFormat('d/m/Y', $noteDate)->format('Y-m-d');
@@ -137,11 +139,11 @@ class UploadController extends Controller
                     'trade_date' => $date,
                     'broker' => $broker,
                     'asset' => $trade['asset'] ?? null,
-                    'market' => str_contains($trade['asset'] ?? '', 'WDO') ? 'dolar' : 'indice',
+                    'market' => $this->classifyMarket($trade['asset'] ?? ''),
                     'side' => $side,
                     'quantity' => (int) ($trade['quantity'] ?? 0),
                     'price' => (float) ($trade['price'] ?? 0),
-                    'trade_type' => 'daytrade',
+                    'trade_type' => $trade['trade_type'] ?? 'daytrade',
                     'source_file' => $path
                 ]);
             }
@@ -208,5 +210,24 @@ class UploadController extends Controller
         }
 
         return redirect()->back()->with($success ? 'success' : 'error', $message);
+    }
+
+    private function classifyMarket($asset)
+    {
+        $asset = strtoupper(trim($asset));
+
+        if (strpos($asset, 'WDO') !== false || strpos($asset, 'DOL') !== false) {
+            return 'dolar';
+        }
+
+        if (strpos($asset, 'WIN') !== false || strpos($asset, 'IND') !== false) {
+            return 'indice';
+        }
+
+        if (strpos($asset, 'BIT') !== false) {
+            return 'bitcoin';
+        }
+
+        return 'outros';
     }
 }

@@ -11,15 +11,43 @@ class ImportController extends Controller
     /**
      * Listar notas de corretagem
      */
-    public function index()
-    {
+    public function index(Request $request)
+{
+    $query = \App\Models\Import::withCount('trades');
 
-        $imports = \App\Models\Import::withCount('trades')
-            ->orderBy('trade_date', 'asc')            
-            ->get();
-
-        return view('imports.index', compact('imports'));
+    // 🔥 FILTRO ANO
+    if ($request->year) {
+        $query->whereYear('trade_date', $request->year);
     }
+
+    // 🔥 FILTRO MÊS
+    if ($request->month) {
+        $query->whereMonth('trade_date', $request->month);
+    }
+
+    // 🔥 FILTRO CORRETORA
+    if ($request->broker) {
+        $query->where('broker', $request->broker);
+    }
+
+    // 🔥 RESULTADO
+    $imports = $query
+        ->orderBy('trade_date', 'asc')
+        ->get();
+
+    // 🔥 DADOS PARA OS FILTROS
+    $years = \App\Models\Import::selectRaw('YEAR(trade_date) as year')
+        ->distinct()
+        ->orderBy('year', 'desc')
+        ->pluck('year');
+
+    $brokers = \App\Models\Import::select('broker')
+        ->distinct()
+        ->orderBy('broker')
+        ->pluck('broker');
+
+    return view('imports.index', compact('imports', 'years', 'brokers'));
+}
 
 
     /**

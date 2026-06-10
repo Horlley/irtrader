@@ -72,6 +72,13 @@
                 </li>
 
                 <li>
+                    <a href="{{ route('tax.brokerage-notes') }}"
+                        class="{{ request()->is('tax/brokerage-notes*') ? 'active' : '' }}">
+                        Notas corretagem
+                    </a>
+                </li>
+
+                <li>
                     <a href="{{ url('/tax/report-ir/' . date('Y')) }}"
                         class="{{ request()->is('tax/report-ir*') ? 'active' : '' }}">
                         🧾 Relatório IR (Receita)
