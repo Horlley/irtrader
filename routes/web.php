@@ -7,6 +7,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\TradeController;
 use App\Http\Controllers\ImportController;
 use App\Http\Controllers\TaxController;
+use App\Http\Controllers\SettingsController;
 
 
 Route::get('/', [UploadController::class, 'index']);
@@ -25,7 +26,9 @@ Route::view('/dashboard', 'pages.dashboard');
 Route::view('/imports', 'pages.imports');
 Route::get('/trades', [TradeController::class, 'index'])->name('trades.index');
 Route::view('/taxes', 'pages.taxes');
-Route::view('/settings', 'pages.settings');
+Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
+Route::post('/settings/tax-config', [SettingsController::class, 'save'])->name('settings.tax-config.save');
+Route::delete('/settings/tax-config', [SettingsController::class, 'destroy'])->name('settings.tax-config.destroy');
 
 Route::get('/api/dashboard', [DashboardController::class, 'stats']);
 Route::get('/api/dashboard/chart', [DashboardController::class, 'chart']);

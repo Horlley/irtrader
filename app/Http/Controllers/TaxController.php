@@ -236,6 +236,47 @@ class TaxController extends Controller
         // 🔥 total agora é do mês (CORREÇÃO PRINCIPAL)
         $total = $monthData['result'] ?? 0;
 
+        $notes = Import::withCount('trades')
+            ->where('user_id', $userId)
+            ->whereYear('trade_date', $year)
+            ->whereMonth('trade_date', $month)
+            ->get();
+
+        $notesSummary = [
+            'notes_count' => $notes->count(),
+            'trades_count' => $notes->sum('trades_count'),
+            'registration_fee' => round($notes->sum('bmf_registration_fee'), 2),
+            'bmf_fees' => round($notes->sum('bmf_fees'), 2),
+            'operational_fee' => round($notes->sum('operational_fee'), 2),
+            'other_costs' => round($notes->sum('total_costs'), 2),
+            'total_costs' => round($notes->sum('bmf_registration_fee') + $notes->sum('bmf_fees') + $notes->sum('operational_fee') + $notes->sum('total_costs'), 2),
+            'ir_day_trade' => round($notes->sum(function ($note) {
+                return $note->irrf_daytrade_proj ?? $note->irrf_daytrade ?? 0;
+            }), 2),
+            'net_total' => round($notes->sum(function ($note) {
+                return $note->net_total ?? $note->net_result ?? 0;
+            }), 2),
+        ];
+
+        $brokerSummary = $notes
+            ->groupBy('broker')
+            ->map(function ($items, $broker) {
+                return [
+                    'broker' => strtoupper($broker),
+                    'notes_count' => $items->count(),
+                    'trades_count' => $items->sum('trades_count'),
+                    'registration_fee' => round($items->sum('bmf_registration_fee'), 2),
+                    'bmf_fees' => round($items->sum('bmf_fees'), 2),
+                    'ir_day_trade' => round($items->sum(function ($note) {
+                        return $note->irrf_daytrade_proj ?? $note->irrf_daytrade ?? 0;
+                    }), 2),
+                    'net_total' => round($items->sum(function ($note) {
+                        return $note->net_total ?? $note->net_result ?? 0;
+                    }), 2),
+                ];
+            })
+            ->values();
+
         if ($request->expectsJson()) {
             return response()->json([
                 'months' => $result['months'],
@@ -243,6 +284,8 @@ class TaxController extends Controller
                 'total' => round($total, 2),
                 'year' => (int) $year,
                 'month' => (int) $month,
+                'notesSummary' => $notesSummary,
+                'brokerSummary' => $brokerSummary,
             ]);
         }
 

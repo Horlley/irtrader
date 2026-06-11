@@ -39,10 +39,17 @@
         </div>
     @endif
 
-    <form method="GET" action="{{ route('tax.brokerage-notes') }}" class="notes-filter">
+    <div class="brokerage-page-header">
+        <div>
+            <h2>Notas corretagem</h2>
+            <p>Consulte notas importadas, custos e resultado por periodo.</p>
+        </div>
+    </div>
+
+    <form method="GET" action="{{ route('tax.brokerage-notes') }}" class="notes-filter" id="brokerageFilters">
         <div class="filter-field filter-year">
             <label>Ano</label>
-            <select name="year" class="form-select" onchange="this.form.submit()">
+            <select name="year" class="form-select">
                 @foreach($years as $itemYear)
                     <option value="{{ $itemYear }}" {{ (string) $year === (string) $itemYear ? 'selected' : '' }}>
                         {{ $itemYear }}
@@ -58,7 +65,7 @@
 
         <div class="filter-field">
             <label>Corretoras</label>
-            <select name="broker" class="form-select" onchange="this.form.submit()">
+            <select name="broker" class="form-select">
                 <option value="">Todas</option>
                 @foreach($brokers as $broker)
                     <option value="{{ $broker }}" {{ request('broker') === $broker ? 'selected' : '' }}>
@@ -75,7 +82,7 @@
 
         <div class="filter-actions">
             <button type="submit" class="btn btn-primary">Filtrar</button>
-            <a href="{{ route('tax.brokerage-notes', ['year' => $year]) }}" class="btn btn-light">Limpar</a>
+            <a href="{{ route('tax.brokerage-notes', ['year' => $year]) }}" class="btn btn-light" id="clearBrokerageFilters">Limpar</a>
         </div>
     </form>
 
@@ -86,15 +93,21 @@
                 $monthUrl = route('tax.brokerage-notes', array_merge($baseFilters, ['year' => $year, 'month' => $monthNumber]));
             @endphp
 
-            <a href="{{ $monthUrl }}" class="{{ $isActive ? 'active' : '' }}">
+            <a href="{{ $monthUrl }}" class="month-filter {{ $isActive ? 'active' : '' }}">
                 {{ $monthName }}
             </a>
         @endforeach
 
-        <a href="{{ route('tax.brokerage-notes', array_merge($baseFilters, ['year' => $year])) }}" class="all-months {{ !$month ? 'active' : '' }}">
+        <a href="{{ route('tax.brokerage-notes', array_merge($baseFilters, ['year' => $year])) }}" class="month-filter all-months {{ !$month ? 'active' : '' }}">
             Todos os meses
         </a>
     </div>
+
+    <div id="brokerageLoading" class="brokerage-loading">
+        Carregando notas de corretagem...
+    </div>
+
+    <div id="notesContent" class="d-none">
 
     <div class="brokerage-summary">
         <div class="summary-card">
@@ -313,6 +326,8 @@
         </div>
     @endif
 
+    </div>
+
 </div>
 
 <style>
@@ -320,12 +335,39 @@
         color: #111827;
     }
 
+    .brokerage-page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 24px;
+        margin-bottom: 20px;
+    }
+
+    .brokerage-page-header h2 {
+        margin: 0;
+        font-size: 26px;
+        font-weight: 800;
+    }
+
+    .brokerage-page-header p {
+        margin: 6px 0 0;
+        color: #64748b;
+    }
+
     .notes-filter {
         display: grid;
-        grid-template-columns: 96px minmax(190px, 1.2fr) repeat(3, minmax(110px, .7fr)) minmax(170px, 1fr) auto;
-        gap: 12px;
+        grid-template-columns: 110px minmax(210px, 1fr) minmax(170px, .8fr) minmax(190px, 1fr) auto;
+        gap: 14px;
         align-items: end;
-        padding: 10px 0 24px;
+        padding: 18px;
+        border: 1px solid #dbeafe;
+        border-radius: 8px;
+        background: #fff;
+        box-shadow: 0 4px 10px rgba(15, 23, 42, 0.04);
+        margin-bottom: 8px;
+    }
+
+    .notes-filter {
         border-bottom: 1px solid #dde1e8;
     }
 
@@ -339,10 +381,16 @@
     .filter-field .form-control,
     .filter-field .form-select {
         min-height: 44px;
-        border: 1px solid #d8dde6;
-        border-radius: 4px;
-        box-shadow: 0 2px 5px rgba(15, 23, 42, 0.08);
+        border: 1px solid #bfdbfe;
+        border-radius: 6px;
+        box-shadow: 0 4px 10px rgba(15, 23, 42, 0.05);
         font-size: 14px;
+    }
+
+    .filter-field .form-control:focus,
+    .filter-field .form-select:focus {
+        border-color: #2563eb;
+        box-shadow: 0 0 0 0.2rem rgba(37, 99, 235, 0.14);
     }
 
     .filter-actions {
@@ -375,6 +423,17 @@
     .month-tabs .all-months {
         margin-left: auto;
         color: #1f2937;
+    }
+
+    .brokerage-loading {
+        padding: 28px;
+        border: 1px dashed #bfdbfe;
+        border-radius: 8px;
+        background: #eff6ff;
+        color: #2563eb;
+        font-weight: 800;
+        text-align: center;
+        margin-bottom: 20px;
     }
 
     .brokerage-summary {
@@ -639,7 +698,7 @@
 
     @media (max-width: 1180px) {
         .notes-filter {
-            grid-template-columns: repeat(3, minmax(160px, 1fr));
+            grid-template-columns: repeat(2, minmax(160px, 1fr));
         }
 
         .brokerage-summary {
@@ -648,6 +707,11 @@
     }
 
     @media (max-width: 760px) {
+        .brokerage-page-header {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
         .notes-filter {
             grid-template-columns: 1fr;
         }
@@ -693,3 +757,134 @@
 </style>
 
 @endsection
+
+@push('scripts')
+<script>
+    (function () {
+        const pageUrl = "{{ route('tax.brokerage-notes') }}";
+        const form = document.getElementById('brokerageFilters');
+        const loading = document.getElementById('brokerageLoading');
+        const content = document.getElementById('notesContent');
+        let debounceTimer = null;
+
+        function activeMonth() {
+            const active = document.querySelector('.month-tabs .month-filter.active');
+
+            if (!active || active.classList.contains('all-months')) {
+                return '';
+            }
+
+            const url = new URL(active.href);
+            return url.searchParams.get('month') || '';
+        }
+
+        function buildUrl(month) {
+            const params = new URLSearchParams(new FormData(form));
+
+            if (month) {
+                params.set('month', month);
+            } else {
+                params.delete('month');
+            }
+
+            Array.from(params.keys()).forEach((key) => {
+                if (!params.get(key)) {
+                    params.delete(key);
+                }
+            });
+
+            const query = params.toString();
+
+            return query ? `${pageUrl}?${query}` : pageUrl;
+        }
+
+        function setLoading(isLoading) {
+            loading.classList.toggle('d-none', !isLoading);
+            content.classList.toggle('d-none', isLoading);
+        }
+
+        function swapFromHtml(html) {
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            const nextContent = doc.querySelector('#notesContent');
+            const nextTabs = doc.querySelector('.month-tabs');
+
+            if (nextTabs) {
+                document.querySelector('.month-tabs').innerHTML = nextTabs.innerHTML;
+            }
+
+            if (nextContent) {
+                content.innerHTML = nextContent.innerHTML;
+            }
+        }
+
+        function loadBrokerageNotes(url, pushState = true) {
+            setLoading(true);
+
+            fetch(url, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+                .then((response) => response.text())
+                .then((html) => {
+                    swapFromHtml(html);
+
+                    if (pushState) {
+                        window.history.pushState({}, '', url);
+                    }
+
+                    setLoading(false);
+                })
+                .catch(() => {
+                    loading.textContent = 'Nao foi possivel carregar as notas.';
+                    content.classList.remove('d-none');
+                });
+        }
+
+        function submitFilters() {
+            loadBrokerageNotes(buildUrl(activeMonth()));
+        }
+
+        form.addEventListener('submit', function (event) {
+            event.preventDefault();
+            submitFilters();
+        });
+
+        form.querySelectorAll('select').forEach((select) => {
+            select.addEventListener('change', submitFilters);
+        });
+
+        form.querySelectorAll('input[type="text"]').forEach((input) => {
+            input.addEventListener('input', function () {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(submitFilters, 450);
+            });
+        });
+
+        document.addEventListener('click', function (event) {
+            const monthLink = event.target.closest('.month-filter');
+            const clearLink = event.target.closest('#clearBrokerageFilters');
+
+            if (monthLink) {
+                event.preventDefault();
+                loadBrokerageNotes(monthLink.href);
+                return;
+            }
+
+            if (clearLink) {
+                event.preventDefault();
+                form.reset();
+                loadBrokerageNotes(clearLink.href);
+            }
+        });
+
+        window.addEventListener('popstate', function () {
+            loadBrokerageNotes(window.location.href, false);
+        });
+
+        document.addEventListener('DOMContentLoaded', function () {
+            loadBrokerageNotes(window.location.href, false);
+        });
+    })();
+</script>
+@endpush

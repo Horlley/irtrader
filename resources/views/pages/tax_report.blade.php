@@ -56,30 +56,36 @@
     </div>
 
     <div id="reportContent" class="d-none">
-        <div class="summary-grid">
+        <div class="summary-grid notes-summary-grid">
             <div class="summary-card">
-                <span>Resultado total</span>
-                <strong id="summaryTotal">R$ 0,00</strong>
+                <span>Notas importadas</span>
+                <strong id="summaryNotes">0</strong>
             </div>
 
             <div class="summary-card">
-                <span>Resultado bruto</span>
-                <strong id="summaryGross">R$ 0,00</strong>
+                <span>Trades importados</span>
+                <strong id="summaryTrades">0</strong>
             </div>
 
             <div class="summary-card">
-                <span>Resultado liquido</span>
-                <strong id="summaryNet">R$ 0,00</strong>
+                <span>Total de custos</span>
+                <strong id="summaryCosts">R$ 0,00</strong>
             </div>
 
             <div class="summary-card">
-                <span>Imposto estimado</span>
-                <strong id="summaryTax">R$ 0,00</strong>
+                <span>IRRF Day Trade</span>
+                <strong id="summaryIrrfDayTrade">R$ 0,00</strong>
+            </div>
+
+            <div class="summary-card">
+                <span>Valor liquido das notas</span>
+                <strong id="summaryNotesNet">R$ 0,00</strong>
             </div>
         </div>
 
-        <div class="card shadow-sm border-0">
+        <div class="card shadow-sm border-0 mb-4">
             <div class="card-body">
+                <h6 class="section-title">Resultado por mercado</h6>
                 <div class="table-responsive">
                     <table class="table report-table mb-0">
                         <thead>
@@ -98,6 +104,29 @@
                                 <th id="footerNet">R$ 0,00</th>
                             </tr>
                         </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <h6 class="section-title">Resumo das notas por corretora</h6>
+
+                <div class="table-responsive">
+                    <table class="table report-table mb-0">
+                        <thead>
+                            <tr>
+                                <th>Corretora</th>
+                                <th>Notas</th>
+                                <th>Trades</th>
+                                <th>Taxa Registro</th>
+                                <th>Taxa BM&F</th>
+                                <th>IR Day Trade</th>
+                                <th>Valor Liquido</th>
+                            </tr>
+                        </thead>
+                        <tbody id="brokerRows"></tbody>
                     </table>
                 </div>
             </div>
@@ -179,6 +208,10 @@
         margin-bottom: 20px;
     }
 
+    .notes-summary-grid {
+        grid-template-columns: repeat(5, minmax(150px, 1fr));
+    }
+
     .summary-card {
         min-height: 92px;
         padding: 16px;
@@ -198,6 +231,13 @@
 
     .summary-card strong {
         font-size: 23px;
+        font-weight: 900;
+    }
+
+    .section-title {
+        margin: 0 0 14px;
+        color: #374151;
+        font-size: 14px;
         font-weight: 900;
     }
 
@@ -232,6 +272,10 @@
         }
 
         .summary-grid {
+            grid-template-columns: repeat(2, minmax(160px, 1fr));
+        }
+
+        .notes-summary-grid {
             grid-template-columns: repeat(2, minmax(160px, 1fr));
         }
     }
@@ -279,6 +323,10 @@
         element.classList.remove('text-success', 'text-danger', 'text-muted');
         element.classList.add(valueClass(value));
         element.textContent = money(value);
+    }
+
+    function setNumber(selector, value) {
+        document.querySelector(selector).textContent = Number(value || 0).toLocaleString('pt-BR');
     }
 
     function marketLabel(key) {
@@ -332,10 +380,28 @@
 
         document.getElementById('reportRows').innerHTML = rows.join('');
 
-        setMoney('#summaryTotal', Number(data.total || 0));
-        setMoney('#summaryGross', totalGross);
-        setMoney('#summaryNet', totalNet);
-        setMoney('#summaryTax', Number(monthData.tax || 0));
+        const notes = data.notesSummary || {};
+        const brokerRows = (data.brokerSummary || []).map((row) => `
+            <tr>
+                <td><strong>${row.broker}</strong></td>
+                <td>${Number(row.notes_count || 0).toLocaleString('pt-BR')}</td>
+                <td>${Number(row.trades_count || 0).toLocaleString('pt-BR')}</td>
+                <td>${money(row.registration_fee)}</td>
+                <td>${money(row.bmf_fees)}</td>
+                <td>${money(row.ir_day_trade)}</td>
+                <td class="${valueClass(row.net_total)} fw-bold">${money(row.net_total)}</td>
+            </tr>
+        `);
+
+        document.getElementById('brokerRows').innerHTML = brokerRows.length
+            ? brokerRows.join('')
+            : '<tr><td colspan="7" class="text-muted">Nenhuma nota encontrada para o periodo.</td></tr>';
+
+        setNumber('#summaryNotes', notes.notes_count);
+        setNumber('#summaryTrades', notes.trades_count);
+        setMoney('#summaryCosts', notes.total_costs);
+        setMoney('#summaryIrrfDayTrade', notes.ir_day_trade);
+        setMoney('#summaryNotesNet', notes.net_total);
         setMoney('#footerGross', totalGross);
         setMoney('#footerNet', totalNet);
 
