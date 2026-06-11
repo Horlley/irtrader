@@ -80,6 +80,9 @@ class MarketClassifier
                         } elseif (str_contains($asset, 'WIN')) {
 
                             $result['indice'] += $profit;
+                        } else {
+
+                            $result['outros'] += $profit;
                         }
 
                         // 🔥 REMOVE OUTROS (CRÍTICO)

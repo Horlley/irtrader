@@ -12,7 +12,7 @@
     <ul class="menu">
 
         <li>
-            <a href="/dashboard"
+            <a href="/dashboard" data-ajax-link
                 class="{{ request()->is('dashboard*') ? 'active' : '' }}">
                 <span>📊</span>
                 Dashboard
@@ -20,7 +20,7 @@
         </li>
 
         <li>
-            <a href="/trades"
+            <a href="/trades" data-ajax-link
                 class="{{ request()->is('trades*') ? 'active' : '' }}">
                 <span>📈</span>
                 Operações
@@ -28,7 +28,7 @@
         </li>
 
         <li>
-            <a href="/imports"
+            <a href="/imports" data-ajax-link
                 class="{{ request()->is('imports*') ? 'active' : '' }}">
                 <span>📂</span>
                 Importar Notas
@@ -36,7 +36,7 @@
         </li>
 
         <li>
-            <a href="/"
+            <a href="/" data-ajax-link
                 class="{{ request()->path() == '/' ? 'active' : '' }}">
                 <span>⬆️</span>
                 Importar em Massa
@@ -58,42 +58,42 @@
             <ul x-show="taxOpen" x-transition style="padding-left:20px">
 
                 <li>
-                    <a href="{{ route('tax.index') }}"
+                    <a href="{{ route('tax.index') }}" data-ajax-link
                         class="{{ request()->is('tax') ? 'active' : '' }}">
                         📊 Apuração Mensal
                     </a>
                 </li>
 
                 <li>
-                    <a href="{{ route('tax.report') }}"
+                    <a href="{{ route('tax.report') }}" data-ajax-link
                         class="{{ (request()->is('tax/report') || request()->is('tax/report/*')) && !request()->is('tax/report-ir*') ? 'active' : '' }}">
                         📈 Resultado por Mercado
                     </a>
                 </li>
 
                 <li>
-                    <a href="{{ route('tax.brokerage-notes') }}"
+                    <a href="{{ route('tax.brokerage-notes') }}" data-ajax-link
                         class="{{ request()->is('tax/brokerage-notes*') ? 'active' : '' }}">
                         📈 Notas corretagem
                     </a>
                 </li>
 
                 <li>
-                    <a href="{{ url('/tax/report-ir/' . date('Y')) }}"
+                    <a href="{{ url('/tax/report-ir/' . date('Y')) }}" data-ajax-link
                         class="{{ request()->is('tax/report-ir*') ? 'active' : '' }}">
                         🧾 Relatório IR (Receita)
                     </a>
                 </li>
 
                 <li>
-                    <a href="{{ route('tax.annual', date('Y')) }}"
+                    <a href="{{ route('tax.annual', date('Y')) }}" data-ajax-link
                         class="{{ request()->is('tax/annual*') ? 'active' : '' }}">
                         📄 Relatório Anual
                     </a>
                 </li>
 
                 <li>
-                    <a href="{{ route('darfs.index') }}"
+                    <a href="{{ route('darfs.index') }}" data-ajax-link
                         class="{{ request()->is('darfs*') ? 'active' : '' }}">
                         🧾 DARFs
                     </a>
@@ -104,7 +104,7 @@
         </li>
 
         <li>
-            <a href="/settings"
+            <a href="/settings" data-ajax-link
                 class="{{ request()->is('settings*') ? 'active' : '' }}">
                 <span>⚙️</span>
                 Configurações

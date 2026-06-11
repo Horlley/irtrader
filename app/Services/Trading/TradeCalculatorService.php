@@ -12,54 +12,52 @@ class TradeCalculatorService
             'outros' => 0,
         ];
 
-        // 🔥 ordena corretamente
-        $trades = $trades->sortBy('trade_date')->values();
+        $groupedTrades = $trades
+            ->sortBy('trade_date')
+            ->groupBy(function ($trade) {
+                return strtoupper(trim($trade->asset));
+            });
 
-        $fifo = [];
+        foreach ($groupedTrades as $asset => $assetTrades) {
+            $fifo = [];
 
-        foreach ($trades as $trade) {
+            foreach ($assetTrades->values() as $trade) {
+                $side = strtolower($trade->side);
+                $price = (float) $trade->price;
+                $qty = (int) $trade->quantity;
 
-            $asset = strtoupper(trim($trade->asset));
-            $side = strtolower($trade->side);
-            $price = (float) $trade->price;
-            $qty = (int) $trade->quantity;
+                if ($side === 'buy') {
+                    $fifo[] = [
+                        'price' => $price,
+                        'qty' => $qty,
+                    ];
 
-            if ($side === 'buy') {
+                    continue;
+                }
 
-                $fifo[] = [
-                    'asset' => $asset,
-                    'price' => $price,
-                    'qty' => $qty,
-                ];
-
-            } elseif ($side === 'sell') {
+                if ($side !== 'sell') {
+                    continue;
+                }
 
                 $sellQty = $qty;
 
                 while ($sellQty > 0 && !empty($fifo)) {
-
                     $buy = &$fifo[0];
+                    $matchQty = min($buy['qty'], $sellQty);
 
-                    // 🔥 só casa MESMO ATIVO (sem destruir fila)
-                    if ($buy['asset'] !== $asset) {
+                    if ($matchQty <= 0) {
                         break;
                     }
 
-                    $matchQty = min($buy['qty'], $sellQty);
-
-                    if ($matchQty <= 0) break;
-
                     $points = $price - $buy['price'];
-
-                    // 🔥 AQUI ESTAVA O ERRO
-                    $mult = self::getMultiplier($asset);
-                    $profit = $points * $matchQty * $mult;
+                    $profit = $points * $matchQty * self::getMultiplier($asset);
 
                     if (str_contains($asset, 'WDO')) {
                         $result['dolar'] += $profit;
-
                     } elseif (str_contains($asset, 'WIN')) {
                         $result['indice'] += $profit;
+                    } else {
+                        $result['outros'] += $profit;
                     }
 
                     $buy['qty'] -= $matchQty;
@@ -77,8 +75,13 @@ class TradeCalculatorService
 
     private static function getMultiplier($asset)
     {
-        if (str_contains($asset, 'WDO')) return 10;   // dólar
-        if (str_contains($asset, 'WIN')) return 0.2;  // índice
+        if (str_contains($asset, 'WDO')) {
+            return 10;
+        }
+
+        if (str_contains($asset, 'WIN')) {
+            return 0.2;
+        }
 
         return 1;
     }

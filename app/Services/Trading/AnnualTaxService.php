@@ -70,16 +70,13 @@ class AnnualTaxService
             // =========================
             // 🔥 DISTRIBUIÇÃO LÍQUIDA (CORREÇÃO PRINCIPAL)
             // =========================
-            $totalBruto = $markets['dolar'] + $markets['indice'];
+            $totalBruto = array_sum($markets);
 
             if ($totalBruto != 0) {
 
-                $ratioDolar = $markets['dolar'] / $totalBruto;
-                $ratioIndice = $markets['indice'] / $totalBruto;
-
-                $markets['dolar'] = $profit * $ratioDolar;
-                $markets['indice'] = $profit * $ratioIndice;
-                $markets['outros'] = 0;
+                foreach ($markets as $marketName => $marketValue) {
+                    $markets[$marketName] = $profit * ($marketValue / $totalBruto);
+                }
 
             } else {
                 // fallback seguro

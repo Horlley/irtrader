@@ -236,7 +236,10 @@ class TaxController extends Controller
         // 🔥 total agora é do mês (CORREÇÃO PRINCIPAL)
         $total = $monthData['result'] ?? 0;
 
-        $notes = Import::withCount('trades')
+        $notes = Import::with(['trades' => function ($query) {
+                $query->orderBy('trade_date')->orderBy('id');
+            }])
+            ->withCount('trades')
             ->where('user_id', $userId)
             ->whereYear('trade_date', $year)
             ->whereMonth('trade_date', $month)
@@ -259,10 +262,12 @@ class TaxController extends Controller
         ];
 
         $brokerSummary = $notes
-            ->groupBy('broker')
+            ->groupBy(function ($note) {
+                return strtoupper(trim($note->broker ?: 'Sem corretora'));
+            })
             ->map(function ($items, $broker) {
                 return [
-                    'broker' => strtoupper($broker),
+                    'broker' => $broker,
                     'notes_count' => $items->count(),
                     'trades_count' => $items->sum('trades_count'),
                     'registration_fee' => round($items->sum('bmf_registration_fee'), 2),
@@ -273,6 +278,33 @@ class TaxController extends Controller
                     'net_total' => round($items->sum(function ($note) {
                         return $note->net_total ?? $note->net_result ?? 0;
                     }), 2),
+                    'notes' => $items->map(function ($note) {
+                        return [
+                            'id' => $note->id,
+                            'number' => $note->note_number,
+                            'date' => $note->trade_date
+                                ? \Carbon\Carbon::parse($note->trade_date)->format('d/m/Y')
+                                : null,
+                            'broker' => strtoupper($note->broker ?: 'Sem corretora'),
+                            'trades_count' => $note->trades_count,
+                            'registration_fee' => round((float) $note->bmf_registration_fee, 2),
+                            'bmf_fees' => round((float) $note->bmf_fees, 2),
+                            'ir_day_trade' => round((float) ($note->irrf_daytrade_proj ?? $note->irrf_daytrade ?? 0), 2),
+                            'net_total' => round((float) ($note->net_total ?? $note->net_result ?? 0), 2),
+                            'trades' => $note->trades->map(function ($trade) {
+                                return [
+                                    'id' => $trade->id,
+                                    'date' => optional($trade->trade_date)->format('d/m/Y'),
+                                    'asset' => $trade->asset,
+                                    'market' => $trade->market,
+                                    'side' => $trade->side,
+                                    'quantity' => (int) $trade->quantity,
+                                    'price' => round((float) $trade->price, 2),
+                                    'trade_type' => $trade->trade_type,
+                                ];
+                            })->values(),
+                        ];
+                    })->values(),
                 ];
             })
             ->values();

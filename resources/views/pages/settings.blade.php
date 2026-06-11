@@ -36,7 +36,7 @@
 
                 <div class="field-row">
                     <label for="year">Ano fiscal</label>
-                    <select id="year" name="year" class="form-select" onchange="window.location='{{ route('settings.index') }}?year=' + this.value">
+                    <select id="year" name="year" class="form-select" data-settings-year-url="{{ route('settings.index') }}">
                         @foreach($years as $itemYear)
                             <option value="{{ $itemYear }}" {{ (int) $year === (int) $itemYear ? 'selected' : '' }}>
                                 {{ $itemYear }}
@@ -290,6 +290,23 @@
 @endsection
 
 @push('scripts')
+    <script>
+        const settingsYearSelect = document.querySelector('[data-settings-year-url]');
+
+        if (settingsYearSelect) {
+            settingsYearSelect.addEventListener('change', function () {
+                const url = `${this.dataset.settingsYearUrl}?year=${encodeURIComponent(this.value)}`;
+
+                if (window.AppNavigation) {
+                    window.AppNavigation.navigate(url, true);
+                    return;
+                }
+
+                window.location.href = url;
+            });
+        }
+    </script>
+
     @if(session('success'))
         <script>
             Swal.fire({

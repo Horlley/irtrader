@@ -6,7 +6,7 @@
             ☰
         </button>
 
-        <h2>
+        <h2 id="page-title">
             @yield('title')
         </h2>
 

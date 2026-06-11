@@ -35,7 +35,7 @@
 
 @include('components.navbar')
 
-<div class="page">
+<div class="page" id="app-page">
 
 @yield('content')
 
@@ -68,9 +68,12 @@
 <script src="https://cdn.datatables.net/responsive/2.5.0/js/responsive.bootstrap5.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <!-- DATATABLE INIT GLOBAL -->
-<script src="/js/datatable-init.js"></script>
+<script src="{{ asset('assets/js/datatable-init.js') }}"></script>
+<script src="{{ asset('assets/js/ajax-navigation.js') }}"></script>
 
+<div id="page-scripts" hidden>
 @stack('scripts')
+</div>
 
 </body>
 

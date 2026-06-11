@@ -4,6 +4,12 @@ document.addEventListener("DOMContentLoaded", function () {
     let sidebar = document.querySelector(".sidebar");
     let main = document.querySelector(".main");
 
+    if (!btn || btn.dataset.bound === 'true') {
+        return;
+    }
+
+    btn.dataset.bound = 'true';
+
     btn.addEventListener("click", function () {
 
         sidebar.classList.toggle("collapsed");

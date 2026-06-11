@@ -37,10 +37,10 @@
         <div class="card-body">
             <h5 class="mb-3">Notas Importadas</h5>
 
-            <form method="GET" id="filterForm">
+            <form method="GET" id="filterForm" data-ajax-form>
                 <div class="row mb-3">
                     <div class="col-md-2">
-                        <select name="year" class="form-select" onchange="this.form.submit()">
+                        <select name="year" class="form-select" data-ajax-auto-submit>
                             <option value="">Ano</option>
                             @foreach($years as $y)
                                 <option value="{{ $y }}" {{ request('year') == $y ? 'selected' : '' }}>
@@ -51,7 +51,7 @@
                     </div>
 
                     <div class="col-md-2">
-                        <select name="month" class="form-select" onchange="this.form.submit()">
+                        <select name="month" class="form-select" data-ajax-auto-submit>
                             <option value="">Mes</option>
                             @for($m=1;$m<=12;$m++)
                                 <option value="{{ str_pad($m,2,'0',STR_PAD_LEFT) }}"
@@ -63,7 +63,7 @@
                     </div>
 
                     <div class="col-md-3">
-                        <select name="broker" class="form-select" onchange="this.form.submit()">
+                        <select name="broker" class="form-select" data-ajax-auto-submit>
                             <option value="">Corretora</option>
                             @foreach($brokers as $b)
                                 <option value="{{ $b }}" {{ request('broker') == $b ? 'selected' : '' }}>
